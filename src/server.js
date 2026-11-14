@@ -27,6 +27,7 @@ export function createServer(store) {
       try {
         return json(res, 201, store.book(await readJson(req)));
       } catch (e) {
+        if (e.code === "SLOT_TAKEN") return json(res, 409, { error: "slot already booked" });
         return json(res, 400, { error: e.message });
       }
     }

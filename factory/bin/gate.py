@@ -9,6 +9,7 @@
 import fnmatch
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 TAIL = 80
@@ -24,6 +25,17 @@ def protected_hits(name_status_lines, patterns):
         if any(fnmatch.fnmatch(old, p) for p in patterns):
             hits.append(f"{status[0]} {old}")
     return hits
+
+
+def base_checks_script(worktree, base, rel_path):
+    """Write the checks script as it exists on the base branch to a temp file and return its path."""
+    text = subprocess.run(
+        ["git", "show", f"{base}:{rel_path}"], cwd=worktree, capture_output=True, text=True, check=True
+    ).stdout
+    f = tempfile.NamedTemporaryFile("w", suffix=".sh", delete=False)
+    f.write(text)
+    f.close()
+    return Path(f.name)
 
 
 def run_checks(cmd, cwd):
@@ -49,7 +61,11 @@ def gate(worktree, checks_script, protected, base="origin/main"):
         ["git", "diff", "--name-status", f"{base}...HEAD"], cwd=worktree, capture_output=True, text=True, check=True
     ).stdout.splitlines()
     hits = protected_hits(diff, protected)
-    verdict, log = run_checks(["bash", str(checks_script)], worktree)
+    script = base_checks_script(worktree, base, "factory/checks.sh")
+    try:
+        verdict, log = run_checks(["bash", str(script)], worktree)
+    finally:
+        script.unlink()
     final = decide(verdict, hits)
     return final, render_report(final, hits, log)
 

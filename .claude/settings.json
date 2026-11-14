@@ -22,11 +22,6 @@
         "registry.npmjs.org",
         "*.npmjs.org"
       ]
-    },
-    "filesystem": {
-      "allowWrite": [
-        "/home/raffael/ai-software-factory-demo/.git"
-      ]
     }
   }
 }

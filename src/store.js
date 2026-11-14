@@ -1,11 +1,12 @@
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
-const sameToken = (expected, given) => {
-  if (typeof given !== "string") return false;
-  const a = Buffer.from(expected);
-  const b = Buffer.from(given);
-  return a.length === b.length && timingSafeEqual(a, b);
-};
+// Cancel tokens are kept only as SHA-256 digests. Both sides are 32-byte digests, so
+// timingSafeEqual always compares equal lengths and never throws.
+const digest = (token) => createHash("sha256").update(token, "utf8").digest();
+const sameToken = (expectedDigest, given) => typeof given === "string" && timingSafeEqual(expectedDigest, digest(given));
+
+// The public view of a stored booking: never the token digest.
+const publicView = ({ id, slot, name, email }) => ({ id, slot, name, email });
 
 // In-memory store for slots and bookings.
 
@@ -23,15 +24,17 @@ export function createStore(slots) {
   let nextId = 1;
   return {
     slots: () => [...slots],
-    bookings: () => [...bookings],
+    bookings: () => bookings.map(publicView),
     book({ slot, name, email }) {
       if (!slots.includes(slot)) throw new Error("unknown slot");
       if (typeof name !== "string" || name.trim() === "") throw new Error("name is required");
       if (typeof email !== "string" || !email.includes("@")) throw new Error("email is invalid");
       if (bookings.some((b) => b.slot === slot)) throw new SlotTakenError();
-      const booking = { id: nextId++, slot, name: name.trim(), email, cancelToken: randomBytes(32).toString("hex") };
-      bookings.push(booking);
-      return booking;
+      const cancelToken = randomBytes(32).toString("hex");
+      const record = { id: nextId++, slot, name: name.trim(), email, tokenDigest: digest(cancelToken) };
+      bookings.push(record);
+      // The plain token leaves the store only here, once; the store keeps just its digest.
+      return { ...publicView(record), cancelToken };
     },
     cancel(id) {
       const i = bookings.findIndex((b) => b.id === id);
@@ -41,10 +44,10 @@ export function createStore(slots) {
     },
     // Returns "cancelled", "forbidden" (missing or wrong token) or "not found".
     cancelWithToken(id, token) {
-      const booking = bookings.find((b) => b.id === id);
-      if (!booking) return "not found";
-      if (!sameToken(booking.cancelToken, token)) return "forbidden";
-      this.cancel(id);
+      const i = bookings.findIndex((b) => b.id === id);
+      if (i === -1) return "not found";
+      if (!sameToken(bookings[i].tokenDigest, token)) return "forbidden";
+      bookings.splice(i, 1);
       return "cancelled";
     },
   };

@@ -1,0 +1,8 @@
+title = "Project rules"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Example files and docs"
+paths = ['''\.env\.example$''', '''^docs/''']

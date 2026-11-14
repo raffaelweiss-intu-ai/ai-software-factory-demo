@@ -1,0 +1,28 @@
+{
+  "concurrency": 1,
+  "max_rounds": 3,
+  "base_branch": "main",
+  "labels": { "queue": "factory", "needs_info": "factory:needs-info", "needs_human": "factory:needs-human" },
+  "builder_model": "opus",
+  "reviewer_floor": "sonnet",
+  "routing": {
+    "low": { "code": "sonnet" },
+    "medium": { "code": "sonnet" },
+    "high": { "code": "opus" }
+  },
+  "surface_reviewers": {
+    "ui": { "ui": "sonnet" },
+    "security": { "security": "opus" }
+  },
+  "protected_paths": [
+    "factory/checks.sh",
+    "factory/config.json",
+    "factory/bin/*",
+    ".claude/settings.json",
+    ".github/*",
+    ".gitleaks.toml",
+    "policy/*",
+    "rules/*"
+  ],
+  "escalate_always": ["payments", "auth", "permissions", "deploy", "ci", "schema-migration", "new-dependency", "public-copy"]
+}

@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Bash(git push --force*)",
+      "Bash(git push * main)",
+      "Bash(gh pr merge*)"
+    ],
+    "disableBypassPermissionsMode": "disable"
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "network": { "allowedDomains": ["github.com", "api.github.com", "registry.npmjs.org", "*.npmjs.org"] }
+  }
+}

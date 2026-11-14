@@ -1,5 +1,5 @@
 ---
-name: software-factory
+name: factory
 description: Runs a quality-gated, secure software factory inside this project. Turns GitHub issues labeled `factory` into reviewed pull requests with intake, spec, test-first build, a deterministic gate, routed reviewers and an approve-or-escalate decision. Use for "/factory run", "/factory run <n>", "/factory <anything>", or when asked to install the software factory.
 ---
 
@@ -40,7 +40,9 @@ issue (label factory)
 
 ## Agent prompts
 
-Every prompt starts with the job folder (`factory/jobs/<job-id>/`), then the worktree (`.worktrees/<job-id>`), the branch (`factory/<job-id>`), the base and the round. Spawn agents in the background, wait for all reviewers of a round before deciding.
+Every prompt starts with the job folder (`factory/jobs/<job-id>/`), then the workspace, the branch (`factory/<job-id>`), the base and the round. Spawn agents in the background and wait for all reviewers of a round before deciding.
+
+**Workspace.** With `concurrency: 1` (the default) the builder works on the branch in the main checkout: `git checkout -b factory/<job-id> origin/main`, and the workspace path is the project root. Git worktrees are only for `concurrency > 1`, and then every builder must run as its **own Claude Code session started inside its worktree**. Reason, found in the first sandboxed run: a session started in the main checkout cannot write to `.git/worktrees/<id>`, so `git commit` from a worktree fails with a read-only error, and `allowWrite` cannot lift it because that path is protected.
 
 ## Resuming
 

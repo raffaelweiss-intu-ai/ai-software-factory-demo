@@ -9,6 +9,7 @@
 import fnmatch
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 TAIL = 80
@@ -26,6 +27,17 @@ def protected_hits(name_status_lines, patterns):
     return hits
 
 
+def base_checks_script(worktree, base, rel_path):
+    """Write the checks script as it exists on the base branch to a temp file and return its path."""
+    text = subprocess.run(
+        ["git", "show", f"{base}:{rel_path}"], cwd=worktree, capture_output=True, text=True, check=True
+    ).stdout
+    f = tempfile.NamedTemporaryFile("w", suffix=".sh", delete=False)
+    f.write(text)
+    f.close()
+    return Path(f.name)
+
+
 def run_checks(cmd, cwd):
     res = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     log = (res.stdout + res.stderr).splitlines()[-TAIL:]
@@ -36,18 +48,26 @@ def decide(check_verdict, hits):
     return "PASS" if check_verdict == "PASS" and not hits else "FAIL"
 
 
+def render_report(final, hits, log):
+    report = [f"GATE: {final}", ""]
+    if hits:
+        report += ["## Protected files changed", *[f"- {h}" for h in hits], ""]
+    report += ["## Output of the checks (tail)", "```", log, "```"]
+    return "\n".join(report)
+
+
 def gate(worktree, checks_script, protected, base="origin/main"):
     diff = subprocess.run(
         ["git", "diff", "--name-status", f"{base}...HEAD"], cwd=worktree, capture_output=True, text=True, check=True
     ).stdout.splitlines()
     hits = protected_hits(diff, protected)
-    verdict, log = run_checks(["bash", str(checks_script)], worktree)
+    script = base_checks_script(worktree, base, "factory/checks.sh")
+    try:
+        verdict, log = run_checks(["bash", str(script)], worktree)
+    finally:
+        script.unlink()
     final = decide(verdict, hits)
-    report = [f"GATE: {final}", ""]
-    if hits:
-        report += ["## Geschützte Dateien verändert", *[f"- {h}" for h in hits], ""]
-    report += ["## Ausgabe der Prüfungen (Ende)", "```", log, "```"]
-    return final, "\n".join(report)
+    return final, render_report(final, hits, log)
 
 
 if __name__ == "__main__":

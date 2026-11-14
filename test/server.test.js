@@ -1,5 +1,6 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { createServer } from "../src/server.js";
 import { createStore } from "../src/store.js";
 
@@ -239,6 +240,83 @@ test("DELETE responses do not leak name or email", async () => {
       const text = await res.text();
       assert.equal(text.includes(name), false);
       assert.equal(text.includes(email), false);
+    }
+  });
+});
+
+test("HTTP: book, 409, cancel, book the same slot again, 409 again", async () => {
+  await withCancelServer(async (url) => {
+    const first = await book(url);
+    assert.equal(first.status, 201);
+    const { id, cancelToken } = await first.json();
+    const taken = await book(url, { slot: CANCEL_SLOTS[0], name: "Bob", email: "bob@example.com" });
+    assert.equal(taken.status, 409);
+    assert.deepEqual(await taken.json(), { error: "slot already booked" });
+    assert.equal((await del(url, `/api/bookings/${id}`, cancelToken)).status, 204);
+    const again = await book(url, { slot: CANCEL_SLOTS[0], name: "Bob", email: "bob@example.com" });
+    assert.equal(again.status, 201);
+    const rebooked = await again.json();
+    assert.equal(rebooked.slot, CANCEL_SLOTS[0]);
+    assert.notEqual(rebooked.id, id);
+    const takenAgain = await book(url, { slot: CANCEL_SLOTS[0], name: "Cy", email: "cy@example.com" });
+    assert.equal(takenAgain.status, 409);
+  });
+});
+
+test("HTTP: a slot cancelled via the API shows up on the booking page again", async () => {
+  await withCancelServer(async (url) => {
+    const { id, cancelToken } = await (await book(url)).json();
+    assert.equal((await fetch(url + "/")).status, 200);
+    assert.equal((await (await fetch(url + "/")).text()).includes(`value="${CANCEL_SLOTS[0]}"`), false);
+    assert.equal((await del(url, `/api/bookings/${id}`, cancelToken)).status, 204);
+    assert.equal((await (await fetch(url + "/")).text()).includes(`value="${CANCEL_SLOTS[0]}"`), true);
+  });
+});
+
+test("POST /api/bookings returns the plain token once while the store keeps neither token nor hash visible", async () => {
+  await withCancelServer(async (url, store) => {
+    const body = await (await book(url)).json();
+    assert.match(body.cancelToken, /^[0-9a-f]{64}$/);
+    assert.deepEqual(Object.keys(body).sort(), ["cancelToken", "email", "id", "name", "slot"]);
+    const listed = JSON.stringify(store.bookings());
+    const digest = createHash("sha256").update(body.cancelToken, "utf8").digest();
+    for (const form of [body.cancelToken, digest.toString("hex"), digest.toString("base64")]) {
+      assert.equal(listed.includes(form), false);
+    }
+  });
+});
+
+test("no endpoint other than POST /api/bookings exposes a token or its hash, including the page", async () => {
+  await withCancelServer(async (url, store) => {
+    const { id, cancelToken } = await (await book(url)).json();
+    const digest = createHash("sha256").update(cancelToken, "utf8").digest();
+    const forms = [cancelToken, digest.toString("hex"), digest.toString("base64"), digest.toString("base64url")];
+    const form = (fields) =>
+      fetch(url + "/", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams(fields).toString(),
+      });
+    const texts = [
+      await (await fetch(url + "/")).text(),
+      await (await fetch(url + "/api/slots")).text(),
+      await (await fetch(url + "/api/bookings")).text(),
+      await (await fetch(url + `/api/bookings/${id}`)).text(),
+      await (await form({ slot: CANCEL_SLOTS[1], name: "Bob", email: "bob@example.com" })).text(),
+      await (await form({ slot: CANCEL_SLOTS[0], name: "Cy", email: "cy@example.com" })).text(),
+      await (await form({ slot: "nope", name: "Cy", email: "cy@example.com" })).text(),
+      await (await fetch(url + "/")).text(),
+      await (await del(url, `/api/bookings/${id}`)).text(),
+      await (await del(url, `/api/bookings/${id}`, digest.toString("hex"))).text(),
+      await (await del(url, `/api/bookings/${id}`, cancelToken)).text(),
+      await (await del(url, `/api/bookings/${id}`, cancelToken)).text(),
+    ];
+    assert.equal(store.bookings().length, 1, "the page booking of slot 2 is still there");
+    for (const text of texts) {
+      for (const f of forms) assert.equal(text.includes(f), false);
+      // Also covers the token of the booking made through the page, which no test can read.
+      assert.doesNotMatch(text, /[0-9a-f]{64}/);
+      assert.doesNotMatch(text, /[A-Za-z0-9+/]{43}=/);
     }
   });
 });

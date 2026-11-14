@@ -36,6 +36,14 @@ def decide(check_verdict, hits):
     return "PASS" if check_verdict == "PASS" and not hits else "FAIL"
 
 
+def render_report(final, hits, log):
+    report = [f"GATE: {final}", ""]
+    if hits:
+        report += ["## Protected files changed", *[f"- {h}" for h in hits], ""]
+    report += ["## Output of the checks (tail)", "```", log, "```"]
+    return "\n".join(report)
+
+
 def gate(worktree, checks_script, protected, base="origin/main"):
     diff = subprocess.run(
         ["git", "diff", "--name-status", f"{base}...HEAD"], cwd=worktree, capture_output=True, text=True, check=True
@@ -43,11 +51,7 @@ def gate(worktree, checks_script, protected, base="origin/main"):
     hits = protected_hits(diff, protected)
     verdict, log = run_checks(["bash", str(checks_script)], worktree)
     final = decide(verdict, hits)
-    report = [f"GATE: {final}", ""]
-    if hits:
-        report += ["## Geschützte Dateien verändert", *[f"- {h}" for h in hits], ""]
-    report += ["## Ausgabe der Prüfungen (Ende)", "```", log, "```"]
-    return final, "\n".join(report)
+    return final, render_report(final, hits, log)
 
 
 if __name__ == "__main__":

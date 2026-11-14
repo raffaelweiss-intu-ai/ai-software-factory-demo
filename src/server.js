@@ -31,9 +31,13 @@ export function createServer(store) {
       }
     }
     const cancelMatch = req.method === "DELETE" && pathname.match(/^\/api\/bookings\/(\d+)$/);
-    if (cancelMatch && store.cancel(Number(cancelMatch[1]))) {
-      res.writeHead(204);
-      return res.end();
+    if (cancelMatch) {
+      const result = store.cancelWithToken(Number(cancelMatch[1]), req.headers["x-cancel-token"]);
+      if (result === "cancelled") {
+        res.writeHead(204);
+        return res.end();
+      }
+      if (result === "forbidden") return json(res, 403, { error: "forbidden" });
     }
     return json(res, 404, { error: "not found" });
   });

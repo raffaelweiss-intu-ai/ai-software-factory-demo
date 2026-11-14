@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { createStore } from "../src/store.js";
 
 const SLOTS = ["2026-12-01T09:00", "2026-12-01T10:00"];
@@ -114,7 +115,7 @@ test("a cancelled slot can be booked again and only the new booking remains", ()
   const s = createStore(SLOTS);
   const b1 = s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
   s.cancel(b1.id);
-  const b2 = s.book({ slot: SLOTS[0], name: "Bob", email: "bob@example.com" });
+  const { cancelToken, ...b2 } = s.book({ slot: SLOTS[0], name: "Bob", email: "bob@example.com" });
   assert.deepEqual(s.bookings(), [b2]);
 });
 
@@ -150,5 +151,54 @@ test("cancelWithToken of an unknown id is not found", () => {
   const b = s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
   assert.equal(s.cancelWithToken(999, b.cancelToken), "not found");
   assert.equal(s.cancelWithToken(999, undefined), "not found");
+  assert.equal(s.bookings().length, 1);
+});
+
+const sha256 = (t) => createHash("sha256").update(t, "utf8").digest();
+
+test("book, cancel, book again on the same slot with double-booking protection active", () => {
+  const s = createStore(SLOTS);
+  const a = s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  assert.throws(() => s.book({ slot: SLOTS[0], name: "Bob", email: "bob@example.com" }), (e) => e.code === "SLOT_TAKEN");
+  assert.equal(s.cancelWithToken(a.id, a.cancelToken), "cancelled");
+  const b = s.book({ slot: SLOTS[0], name: "Bob", email: "bob@example.com" });
+  assert.equal(b.slot, SLOTS[0]);
+  assert.notEqual(b.id, a.id);
+  assert.throws(() => s.book({ slot: SLOTS[0], name: "Cy", email: "cy@example.com" }), (e) => e.code === "SLOT_TAKEN");
+  assert.deepEqual(s.bookings().map((x) => x.id), [b.id]);
+});
+
+test("bookings() never exposes the cancel token or its hash", () => {
+  const s = createStore(SLOTS);
+  const b1 = s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  const b2 = s.book({ slot: SLOTS[1], name: "Bob", email: "bob@example.com" });
+  const list = s.bookings();
+  for (const x of list) assert.deepEqual(Object.keys(x).sort(), ["email", "id", "name", "slot"]);
+  const text = JSON.stringify(list);
+  for (const { cancelToken } of [b1, b2]) {
+    const digest = sha256(cancelToken);
+    for (const form of [cancelToken, digest.toString("hex"), digest.toString("base64"), digest.toString("base64url")]) {
+      assert.equal(text.includes(form), false, "bookings() leaks the token or its hash");
+    }
+  }
+});
+
+test("the store keeps no reference to the returned booking or its plain token", () => {
+  const s = createStore(SLOTS);
+  const b = s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  const real = b.cancelToken;
+  b.cancelToken = "attacker-chosen";
+  s.bookings()[0].cancelToken = "attacker-chosen";
+  assert.equal(s.cancelWithToken(b.id, "attacker-chosen"), "forbidden");
+  assert.equal(s.cancelWithToken(b.id, real), "cancelled");
+});
+
+test("the SHA-256 hash of the token is not accepted as the token", () => {
+  const s = createStore(SLOTS);
+  const b = s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  const digest = sha256(b.cancelToken);
+  for (const form of [digest.toString("hex"), digest.toString("base64")]) {
+    assert.equal(s.cancelWithToken(b.id, form), "forbidden");
+  }
   assert.equal(s.bookings().length, 1);
 });

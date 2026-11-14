@@ -1,5 +1,5 @@
 ---
-name: software-factory
+name: factory
 description: Runs a quality-gated, secure software factory inside this project. Turns GitHub issues labeled `factory` into reviewed pull requests with intake, spec, test-first build, a deterministic gate, routed reviewers and an approve-or-escalate decision. Use for "/factory run", "/factory run <n>", "/factory <anything>", or when asked to install the software factory.
 ---
 

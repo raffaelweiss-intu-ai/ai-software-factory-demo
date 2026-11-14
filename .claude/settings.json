@@ -15,6 +15,18 @@
     "enabled": true,
     "failIfUnavailable": true,
     "allowUnsandboxedCommands": false,
-    "network": { "allowedDomains": ["github.com", "api.github.com", "registry.npmjs.org", "*.npmjs.org"] }
+    "network": {
+      "allowedDomains": [
+        "github.com",
+        "api.github.com",
+        "registry.npmjs.org",
+        "*.npmjs.org"
+      ]
+    },
+    "filesystem": {
+      "allowWrite": [
+        "/home/raffael/ai-software-factory-demo/.git"
+      ]
+    }
   }
 }

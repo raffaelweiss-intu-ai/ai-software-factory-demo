@@ -152,7 +152,8 @@ test("POST / for a taken slot answers 409 without leaking the first booking", as
     assert.ok(!html.includes("Ada Lovelace"), "leaks name");
     assert.ok(!html.includes("ada@example.com"), "leaks email");
     const id = String(store.bookings()[0].id);
-    const markup = html.replace(/<style>[\s\S]*?<\/style>/, "").replace(/2026-12-01T\d\d:\d\d/g, "");
+    // The <head> is static markup (viewport meta has "initial-scale=1"); check everything after it.
+    const markup = html.slice(html.indexOf("</head>")).replace(/2026-12-01T\d\d:\d\d/g, "");
     assert.ok(!new RegExp(`\\b${id}\\b`).test(markup.replace(/<h1\b/g, "")), "leaks id");
     assert.ok(!radios(html).some((r) => attr(r, "value") === A), "taken slot not listed");
     assert.ok(radios(html).some((r) => attr(r, "value") === B), "other slot still listed");

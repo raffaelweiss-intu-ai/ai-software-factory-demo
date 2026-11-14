@@ -30,6 +30,11 @@ export function createServer(store) {
         return json(res, 400, { error: e.message });
       }
     }
+    const cancelMatch = req.method === "DELETE" && pathname.match(/^\/api\/bookings\/(\d+)$/);
+    if (cancelMatch && store.cancel(Number(cancelMatch[1]))) {
+      res.writeHead(204);
+      return res.end();
+    }
     return json(res, 404, { error: "not found" });
   });
 }

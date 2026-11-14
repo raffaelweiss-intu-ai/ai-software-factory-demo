@@ -13,5 +13,11 @@ export function createStore(slots) {
       bookings.push(booking);
       return booking;
     },
+    cancel(id) {
+      const i = bookings.findIndex((b) => b.id === id);
+      if (i === -1) return false;
+      bookings.splice(i, 1);
+      return true;
+    },
   };
 }

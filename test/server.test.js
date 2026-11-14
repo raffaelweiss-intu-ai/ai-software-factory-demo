@@ -40,3 +40,54 @@ test("malformed JSON answers 400, not a crash", async () => {
 test("unknown route answers 404", async () => {
   assert.equal((await fetch(base + "/nope")).status, 404);
 });
+
+// Fresh server and store per test: the shared server above already books 2026-12-01T09:00.
+const withServer = async (slots, fn) => {
+  const srv = createServer(createStore(slots));
+  await new Promise((r) => srv.listen(0, "127.0.0.1", r));
+  const url = `http://127.0.0.1:${srv.address().port}/api/bookings`;
+  const send = (body) =>
+    fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  try {
+    await fn(send);
+  } finally {
+    await new Promise((r) => srv.close(r));
+  }
+};
+
+const SLOT = "2026-12-02T09:00";
+
+test("double booking answers 201 then 409 with a clear error", async () => {
+  await withServer([SLOT], async (send) => {
+    const first = await send({ slot: SLOT, name: "Ada", email: "ada@example.com" });
+    assert.equal(first.status, 201);
+    await first.json();
+    const second = await send({ slot: SLOT, name: "Bob", email: "bob@example.com" });
+    assert.equal(second.status, 409);
+    assert.deepEqual(await second.json(), { error: "slot already booked" });
+  });
+});
+
+test("the 409 body does not leak the first booking", async () => {
+  await withServer([SLOT], async (send) => {
+    const first = await (await send({ slot: SLOT, name: "Ada Lovelace", email: "ada@example.com" })).json();
+    const res = await send({ slot: SLOT, name: "Bob", email: "bob@example.com" });
+    assert.equal(res.status, 409);
+    const text = await res.text();
+    assert.ok(!text.includes("Ada Lovelace"), "leaks name");
+    assert.ok(!text.includes("ada@example.com"), "leaks email");
+    assert.ok(!text.includes('"id"') && !text.includes(String(first.id)), "leaks id");
+  });
+});
+
+test("invalid input on a taken slot still answers 400", async () => {
+  await withServer([SLOT], async (send) => {
+    assert.equal((await send({ slot: SLOT, name: "Ada", email: "ada@example.com" })).status, 201);
+    const noName = await send({ slot: SLOT, email: "bob@example.com" });
+    assert.equal(noName.status, 400);
+    assert.match((await noName.json()).error, /name is required/);
+    const unknown = await send({ slot: "nope", name: "Bob", email: "bob@example.com" });
+    assert.equal(unknown.status, 400);
+    assert.match((await unknown.json()).error, /unknown slot/);
+  });
+});

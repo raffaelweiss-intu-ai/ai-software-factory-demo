@@ -70,3 +70,38 @@ test("a cancelled slot can be booked again and only the new booking remains", ()
   const b2 = s.book({ slot: SLOTS[0], name: "Bob", email: "bob@example.com" });
   assert.deepEqual(s.bookings(), [b2]);
 });
+
+test("book returns a random cancelToken that differs per booking", () => {
+  const s = createStore(SLOTS);
+  const b1 = s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  const b2 = s.book({ slot: SLOTS[0], name: "Bob", email: "bob@example.com" });
+  assert.equal(typeof b1.cancelToken, "string");
+  assert.match(b1.cancelToken, /^[0-9a-f]{64}$/);
+  assert.notEqual(b1.cancelToken, b2.cancelToken);
+});
+
+test("cancelWithToken with the right token cancels the booking", () => {
+  const s = createStore(SLOTS);
+  const b = s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  assert.equal(s.cancelWithToken(b.id, b.cancelToken), "cancelled");
+  assert.deepEqual(s.bookings(), []);
+});
+
+test("cancelWithToken with a missing or wrong token is forbidden and changes nothing", () => {
+  const s = createStore(SLOTS);
+  const b = s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  const other = s.book({ slot: SLOTS[0], name: "Bob", email: "bob@example.com" });
+  const before = s.bookings();
+  for (const token of [undefined, null, "", "nope", b.cancelToken.slice(1), b.cancelToken.toUpperCase(), other.cancelToken, 42]) {
+    assert.equal(s.cancelWithToken(b.id, token), "forbidden", String(token));
+  }
+  assert.deepEqual(s.bookings(), before);
+});
+
+test("cancelWithToken of an unknown id is not found", () => {
+  const s = createStore(SLOTS);
+  const b = s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  assert.equal(s.cancelWithToken(999, b.cancelToken), "not found");
+  assert.equal(s.cancelWithToken(999, undefined), "not found");
+  assert.equal(s.bookings().length, 1);
+});

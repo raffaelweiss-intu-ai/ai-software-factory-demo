@@ -8,4 +8,5 @@ cd "$worktree"
 git fetch origin
 git merge --no-edit origin/main
 python3 "$here/gate.py" "$worktree" "$report"   # exits 1 on FAIL, which aborts here
+gh pr ready "$pr" 2>/dev/null || true   # builders open drafts; a draft cannot be merged
 gh pr merge "$pr" --merge

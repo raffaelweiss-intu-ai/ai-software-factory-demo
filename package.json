@@ -6,7 +6,7 @@
   "description": "Small appointment booking API. Demo project for the AI software factory.",
   "scripts": {
     "start": "node src/server.js",
-    "lint": "node --check src/server.js && node --check src/store.js",
+    "lint": "node --check src/server.js && node --check src/store.js && node --check src/page.js",
     "test": "node --test \"test/*.test.js\""
   },
   "engines": { "node": ">=22" }

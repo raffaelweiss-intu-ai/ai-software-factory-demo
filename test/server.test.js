@@ -91,3 +91,159 @@ test("invalid input on a taken slot still answers 400", async () => {
     assert.match((await unknown.json()).error, /unknown slot/);
   });
 });
+
+// Admin list of bookings. Fresh server and store per test; the token is injected unless `options` is undefined.
+const ADMIN_PATH = "/api/admin/bookings";
+const T = "test-admin-token-1234";
+const ADA = { slot: SLOT, name: "Ada Example", email: "ada@example.com" };
+
+const withAdmin = async (options, fn) => {
+  const store = createStore([SLOT, "2026-12-02T10:00"]);
+  const srv = options === undefined ? createServer(store) : createServer(store, options);
+  await new Promise((r) => srv.listen(0, "127.0.0.1", r));
+  const origin = `http://127.0.0.1:${srv.address().port}`;
+  const get = (authorization, method = "GET", path = ADMIN_PATH) =>
+    fetch(origin + path, { method, headers: authorization === undefined ? {} : { authorization } });
+  try {
+    await fn({ store, get });
+  } finally {
+    await new Promise((r) => srv.close(r));
+  }
+};
+
+const notFoundBody = async () => {
+  let body;
+  await withAdmin(undefined, async ({ get }) => {
+    body = await (await get(undefined, "GET", "/nope")).json();
+  });
+  return body;
+};
+
+const assertUnauthorized = async (res) => {
+  assert.equal(res.status, 401);
+  assert.deepEqual(await res.json(), { error: "unauthorized" });
+};
+
+const restoreEnv = (saved) => {
+  if (saved === undefined) delete process.env.ADMIN_TOKEN;
+  else process.env.ADMIN_TOKEN = saved;
+};
+
+test("admin bookings without an Authorization header answers 401", async () => {
+  await withAdmin({ adminToken: T }, async ({ get }) => {
+    await assertUnauthorized(await get(undefined));
+  });
+});
+
+test("admin bookings with a wrong, same-length, prefix or longer token answers 401", async () => {
+  await withAdmin({ adminToken: T }, async ({ get }) => {
+    const sameLength = "x".repeat(T.length);
+    for (const token of ["wrong", sameLength, T.slice(0, -1), T + "x"]) {
+      await assertUnauthorized(await get(`Bearer ${token}`));
+    }
+  });
+});
+
+test("admin bookings with a Basic scheme, a bare token or an empty Bearer answers 401", async () => {
+  await withAdmin({ adminToken: T }, async ({ get }) => {
+    for (const header of [`Basic ${T}`, T, "Bearer ", "Bearer", `Bearer  ${T}`]) {
+      await assertUnauthorized(await get(header));
+    }
+  });
+});
+
+test("admin bookings with the correct token answers 200 and every booking", async () => {
+  await withAdmin({ adminToken: T }, async ({ store, get }) => {
+    const booking = store.book(ADA);
+    const res = await get(`Bearer ${T}`);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get("content-type"), /application\/json/);
+    assert.deepEqual(await res.json(), [{ id: booking.id, slot: booking.slot, name: booking.name, email: booking.email }]);
+    assert.equal((await get(`bearer ${T}`)).status, 200, "scheme is case-insensitive");
+  });
+});
+
+test("admin bookings with the correct token and no bookings answers []", async () => {
+  await withAdmin({ adminToken: T }, async ({ get }) => {
+    const res = await get(`Bearer ${T}`);
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), []);
+  });
+});
+
+test("the admin 401 body leaks no booking data and no token", async () => {
+  await withAdmin({ adminToken: T }, async ({ store, get }) => {
+    store.book(ADA);
+    const cases = [
+      [undefined, ""],
+      ["Bearer wrong-token-sent", "wrong-token-sent"],
+      [`Basic ${T}`, T],
+    ];
+    for (const [header, sent] of cases) {
+      const res = await get(header);
+      assert.equal(res.status, 401);
+      const text = await res.text();
+      assert.ok(!text.includes(ADA.name), "leaks name");
+      assert.ok(!text.includes(ADA.email), "leaks email");
+      assert.ok(!text.includes(T), "leaks configured token");
+      if (sent) assert.ok(!text.includes(sent), "leaks sent token");
+    }
+  });
+});
+
+test("admin bookings with the token unset answers 404 like an unknown route", async () => {
+  const saved = process.env.ADMIN_TOKEN;
+  delete process.env.ADMIN_TOKEN;
+  try {
+    const expected = await notFoundBody();
+    await withAdmin(undefined, async ({ store, get }) => {
+      store.book(ADA);
+      for (const header of [undefined, "Bearer anything", "Bearer "]) {
+        const res = await get(header);
+        assert.equal(res.status, 404);
+        assert.deepEqual(await res.json(), expected);
+      }
+    });
+  } finally {
+    restoreEnv(saved);
+  }
+});
+
+test("admin bookings with an empty token answers 404, never 200 or 401", async () => {
+  const expected = await notFoundBody();
+  await withAdmin({ adminToken: "" }, async ({ store, get }) => {
+    store.book(ADA);
+    for (const header of [undefined, "Bearer ", "Bearer x", "Bearer"]) {
+      const res = await get(header);
+      assert.equal(res.status, 404);
+      assert.deepEqual(await res.json(), expected);
+    }
+  });
+});
+
+test("non-GET methods on admin bookings answer 404 even with the correct token", async () => {
+  await withAdmin({ adminToken: T }, async ({ get }) => {
+    for (const method of ["POST", "DELETE"]) {
+      const res = await get(`Bearer ${T}`, method);
+      assert.equal(res.status, 404);
+      assert.deepEqual(await res.json(), { error: "not found" });
+    }
+  });
+});
+
+test("admin bookings reads ADMIN_TOKEN on each request", async () => {
+  const saved = process.env.ADMIN_TOKEN;
+  try {
+    await withAdmin(undefined, async ({ get }) => {
+      process.env.ADMIN_TOKEN = T;
+      assert.equal((await get(`Bearer ${T}`)).status, 200);
+      assert.equal((await get(`Bearer ${T}`, "GET", `${ADMIN_PATH}?x=1`)).status, 200, "query string ignored");
+      delete process.env.ADMIN_TOKEN;
+      assert.equal((await get(`Bearer ${T}`)).status, 404);
+      process.env.ADMIN_TOKEN = "";
+      assert.equal((await get("Bearer ")).status, 404);
+    });
+  } finally {
+    restoreEnv(saved);
+  }
+});

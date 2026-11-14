@@ -32,6 +32,53 @@ test("rejects an email without @", () => {
   assert.throws(() => s.book({ slot: SLOTS[0], name: "Ada", email: "ada.example.com" }), /email/);
 });
 
+test("rejects a second booking of the same slot", () => {
+  const s = createStore(SLOTS);
+  s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  assert.throws(() => s.book({ slot: SLOTS[0], name: "Bob", email: "bob@example.com" }), /slot already booked/);
+});
+
+test("same person booking the same slot twice is also rejected", () => {
+  const s = createStore(SLOTS);
+  s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  assert.throws(() => s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" }), /slot already booked/);
+});
+
+test("the slot-taken error carries a machine-readable code", () => {
+  const s = createStore(SLOTS);
+  s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  assert.throws(
+    () => s.book({ slot: SLOTS[0], name: "Bob", email: "bob@example.com" }),
+    (e) => e.code === "SLOT_TAKEN" && e.message === "slot already booked",
+  );
+});
+
+test("a rejected booking adds nothing and does not use up an id", () => {
+  const s = createStore(SLOTS);
+  s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  assert.throws(() => s.book({ slot: SLOTS[0], name: "Bob", email: "bob@example.com" }));
+  assert.equal(s.bookings().length, 1);
+  const next = s.book({ slot: SLOTS[1], name: "Bob", email: "bob@example.com" });
+  assert.equal(next.id, 2);
+  assert.equal(s.bookings().length, 2);
+});
+
+test("another slot stays bookable after a rejection", () => {
+  const s = createStore(SLOTS);
+  s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  assert.throws(() => s.book({ slot: SLOTS[0], name: "Bob", email: "bob@example.com" }));
+  const b = s.book({ slot: SLOTS[1], name: "Bob", email: "bob@example.com" });
+  assert.equal(b.slot, SLOTS[1]);
+});
+
+test("on a taken slot, validation errors still come first", () => {
+  const s = createStore(SLOTS);
+  s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  assert.throws(() => s.book({ slot: SLOTS[0], name: "  ", email: "bob@example.com" }), /name is required/);
+  assert.throws(() => s.book({ slot: SLOTS[0], name: "Bob", email: "bob.example.com" }), /email is invalid/);
+  assert.throws(() => s.book({ slot: "2030-01-01T00:00", name: "Bob", email: "bob@example.com" }), /unknown slot/);
+});
+
 test("cancel removes an existing booking and returns true", () => {
   const s = createStore(SLOTS);
   const b = s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
@@ -74,7 +121,7 @@ test("a cancelled slot can be booked again and only the new booking remains", ()
 test("book returns a random cancelToken that differs per booking", () => {
   const s = createStore(SLOTS);
   const b1 = s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
-  const b2 = s.book({ slot: SLOTS[0], name: "Bob", email: "bob@example.com" });
+  const b2 = s.book({ slot: SLOTS[1], name: "Bob", email: "bob@example.com" });
   assert.equal(typeof b1.cancelToken, "string");
   assert.match(b1.cancelToken, /^[0-9a-f]{64}$/);
   assert.notEqual(b1.cancelToken, b2.cancelToken);
@@ -90,7 +137,7 @@ test("cancelWithToken with the right token cancels the booking", () => {
 test("cancelWithToken with a missing or wrong token is forbidden and changes nothing", () => {
   const s = createStore(SLOTS);
   const b = s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
-  const other = s.book({ slot: SLOTS[0], name: "Bob", email: "bob@example.com" });
+  const other = s.book({ slot: SLOTS[1], name: "Bob", email: "bob@example.com" });
   const before = s.bookings();
   for (const token of [undefined, null, "", "nope", b.cancelToken.slice(1), b.cancelToken.toUpperCase(), other.cancelToken, 42]) {
     assert.equal(s.cancelWithToken(b.id, token), "forbidden", String(token));

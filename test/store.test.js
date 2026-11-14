@@ -31,3 +31,50 @@ test("rejects an email without @", () => {
   const s = createStore(SLOTS);
   assert.throws(() => s.book({ slot: SLOTS[0], name: "Ada", email: "ada.example.com" }), /email/);
 });
+
+test("rejects a second booking of the same slot", () => {
+  const s = createStore(SLOTS);
+  s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  assert.throws(() => s.book({ slot: SLOTS[0], name: "Bob", email: "bob@example.com" }), /slot already booked/);
+});
+
+test("same person booking the same slot twice is also rejected", () => {
+  const s = createStore(SLOTS);
+  s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  assert.throws(() => s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" }), /slot already booked/);
+});
+
+test("the slot-taken error carries a machine-readable code", () => {
+  const s = createStore(SLOTS);
+  s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  assert.throws(
+    () => s.book({ slot: SLOTS[0], name: "Bob", email: "bob@example.com" }),
+    (e) => e.code === "SLOT_TAKEN" && e.message === "slot already booked",
+  );
+});
+
+test("a rejected booking adds nothing and does not use up an id", () => {
+  const s = createStore(SLOTS);
+  s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  assert.throws(() => s.book({ slot: SLOTS[0], name: "Bob", email: "bob@example.com" }));
+  assert.equal(s.bookings().length, 1);
+  const next = s.book({ slot: SLOTS[1], name: "Bob", email: "bob@example.com" });
+  assert.equal(next.id, 2);
+  assert.equal(s.bookings().length, 2);
+});
+
+test("another slot stays bookable after a rejection", () => {
+  const s = createStore(SLOTS);
+  s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  assert.throws(() => s.book({ slot: SLOTS[0], name: "Bob", email: "bob@example.com" }));
+  const b = s.book({ slot: SLOTS[1], name: "Bob", email: "bob@example.com" });
+  assert.equal(b.slot, SLOTS[1]);
+});
+
+test("on a taken slot, validation errors still come first", () => {
+  const s = createStore(SLOTS);
+  s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  assert.throws(() => s.book({ slot: SLOTS[0], name: "  ", email: "bob@example.com" }), /name is required/);
+  assert.throws(() => s.book({ slot: SLOTS[0], name: "Bob", email: "bob.example.com" }), /email is invalid/);
+  assert.throws(() => s.book({ slot: "2030-01-01T00:00", name: "Bob", email: "bob@example.com" }), /unknown slot/);
+});

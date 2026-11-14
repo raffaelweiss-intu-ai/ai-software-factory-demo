@@ -11,7 +11,7 @@ If `factory/` does not exist yet, this project has not installed the factory: fo
 
 ## Commands
 
-- `/factory run`: drain the queue, at most `concurrency` jobs at a time (see `factory/config.json`). Also resumes jobs that were interrupted.
+- `/factory run`: drain the queue, at most `concurrency` jobs at a time (see `factory/config.json`). Also resumes jobs that were interrupted. A job in `needs-human` or `needs-info` waits for a person and does **not** occupy a slot: start the next queued issue.
 - `/factory run <n>`: run issue `n` now.
 - `/factory <anything>`: talk to the factory: ask about jobs, give feedback to a job in `needs-human`, reject a job.
 

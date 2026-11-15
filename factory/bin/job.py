@@ -30,7 +30,7 @@ TRANSITIONS = {
     "review": {"approve", "build", "needs-human"},
     "approve": {"merging", "needs-human"},
     "merging": {"merged", "needs-human"},
-    "needs-human": {"build", "rejected"},
+    "needs-human": {"build", "rejected", "merged"},
     "merged": set(),
     "rejected": set(),
 }

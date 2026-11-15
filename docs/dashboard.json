@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-15T21:27:12+00:00",
+  "generated": "2026-11-15T21:39:02+00:00",
   "jobs": [
     {
       "id": "001-cancel-a-booking",
@@ -12,6 +12,7 @@
       "surfaces": [
         "security"
       ],
+      "confidence": null,
       "rounds": [
         {
           "round": 1,
@@ -216,6 +217,7 @@
       "round": 1,
       "risk": "low",
       "surfaces": [],
+      "confidence": null,
       "rounds": [
         {
           "round": 1,
@@ -315,6 +317,7 @@
         "ui",
         "security"
       ],
+      "confidence": null,
       "rounds": [
         {
           "round": 1,
@@ -421,6 +424,7 @@
       "surfaces": [
         "security"
       ],
+      "confidence": null,
       "rounds": [
         {
           "round": 1,
@@ -488,11 +492,11 @@
           "stage": "needs-human",
           "round": 1,
           "note": "approver ESCALATE: auth surface",
-          "minutes": 1334
+          "minutes": 1346
         }
       ],
-      "lead_minutes": 1338,
-      "human_wait_minutes": 1334,
+      "lead_minutes": 1350,
+      "human_wait_minutes": 1346,
       "machine_minutes": 4,
       "progress": {
         "position": "approve",
@@ -514,6 +518,7 @@
       "round": 0,
       "risk": "low",
       "surfaces": [],
+      "confidence": null,
       "rounds": [],
       "events": [
         {
@@ -528,11 +533,11 @@
           "stage": "needs-info",
           "round": 0,
           "note": "intake NEEDS-INFO",
-          "minutes": 1333
+          "minutes": 1345
         }
       ],
-      "lead_minutes": 1334,
-      "human_wait_minutes": 1333,
+      "lead_minutes": 1346,
+      "human_wait_minutes": 1345,
       "machine_minutes": 1,
       "progress": {
         "position": "intake",
@@ -556,6 +561,7 @@
       "surfaces": [
         "security"
       ],
+      "confidence": null,
       "rounds": [],
       "events": [
         {
@@ -597,10 +603,10 @@
     "median_merged_minutes": 5,
     "stage_minutes": {
       "build": 33,
-      "needs-human": 2637,
+      "needs-human": 2649,
       "intake": 1,
-      "needs-info": 1333
+      "needs-info": 1345
     },
-    "human_wait_share": 0.9875621890547264
+    "human_wait_share": 0.9876360039564788
   }
 }

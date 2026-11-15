@@ -85,6 +85,14 @@ def _intake(job_dir):
     return (risk.group(1).lower() if risk else "unknown"), [s for s in surfaces if s and s != "none"]
 
 
+def _confidence(job_dir):
+    f = job_dir / "decision.md"
+    if not f.exists():
+        return None
+    m = re.search(r"^CONFIDENCE:\s*(\w+)", f.read_text(errors="replace"), re.M | re.I)
+    return m.group(1).lower() if m else None
+
+
 def _ts(s):
     return datetime.fromisoformat(s)
 
@@ -149,7 +157,7 @@ def build(root, now=None):
         jobs.append({
             "id": data["id"], "issue": data["issue"], "title": sanitize(data["title"]),
             "stage": data["stage"], "column": data["stage"], "round": data.get("round", 0),
-            "risk": risk, "surfaces": surfaces,
+            "risk": risk, "surfaces": surfaces, "confidence": _confidence(p),
             "rounds": _rounds(p), "events": events,
             "lead_minutes": lead, "human_wait_minutes": human_wait, "machine_minutes": lead - human_wait,
             "progress": _progress(raw, data["stage"]),
@@ -208,6 +216,7 @@ h1{font-size:clamp(1.8rem,4vw,2.6rem);margin:6px 0 6px;letter-spacing:-.02em}
 .card h3{font-size:1rem;margin:8px 0 8px;line-height:1.3}
 .tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
 .tag{font-size:.7rem;border-radius:99px;padding:1px 8px;border:1px solid var(--line);color:var(--mut)}
+.conf-high{color:var(--cy);border-color:var(--cy)}.conf-medium,.conf-low{color:var(--warn);border-color:var(--warn)}
 .risk-high{color:var(--fail);border-color:var(--fail)}.risk-medium{color:var(--warn);border-color:var(--warn)}.risk-low{color:var(--pass);border-color:var(--pass)}
 .steps{display:flex;align-items:center;margin:2px 0 10px}
 .dot{width:12px;height:12px;border-radius:50%;background:var(--line);flex:none}
@@ -264,6 +273,8 @@ def _card(j):
     parts.append(f'<h3>{e(j["title"])}</h3>')
     tags = [f'<span class="tag risk-{e(j["risk"])}">Risiko {e(j["risk"])}</span>']
     tags += [f'<span class="tag">{e(s)}</span>' for s in j["surfaces"]]
+    if j.get("confidence"):
+        tags.append(f'<span class="tag conf-{e(j["confidence"])}">Konfidenz {e(j["confidence"])}</span>')
     parts.append(f'<div class="tags">{"".join(tags)}</div>')
     parts.append(_step_dots(j["progress"]))
     for r in j["rounds"]:

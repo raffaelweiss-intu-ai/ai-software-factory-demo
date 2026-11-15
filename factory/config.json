@@ -24,5 +24,6 @@
     "policy/*",
     "rules/*"
   ],
-  "escalate_always": ["payments", "auth", "permissions", "deploy", "ci", "schema-migration", "new-dependency", "public-copy"]
+  "escalate_always": ["payments", "auth", "permissions", "deploy", "ci", "schema-migration", "new-dependency", "public-copy"],
+  "autonomy": { "auto_merge": true, "min_confidence": "high", "max_risk": "low", "never_surfaces": ["security"], "max_auto_round": 1 }
 }

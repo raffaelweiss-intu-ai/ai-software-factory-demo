@@ -94,7 +94,7 @@ def build(root):
         data = json.loads(f.read_text())
         raw = data.get("events", [])
         needed = data["stage"] in HUMAN_STAGES
-        reason = sanitize(raw[-1].get("note", "")) if needed and raw else ""
+        reason = sanitize(raw[-1].get("note", "")) if (needed or data["stage"] == "rejected") and raw else ""
         for stage, n in _bounces(raw).items():
             bounces[stage] = bounces.get(stage, 0) + n
         your_call += needed
@@ -116,8 +116,8 @@ CSS = """
 @media (prefers-color-scheme:dark){:root{--bg:#141416;--fg:#ececee;--mut:#9a9aa2;--card:#1d1d20;--line:#34343a;--pass:#4cc38a;--fail:#ff8a80;--unk:#e3b341;--you:#b794f6}}
 *{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,sans-serif}
 h1{font-size:1.3rem;margin:0 0 4px}.sub{color:var(--mut);margin:0 0 16px}
-.board{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px}
-.col{flex:0 0 230px}.col h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin:0 0 8px}
+.board{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;align-items:start}
+.col{min-width:0}.col h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin:0 0 8px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px}
 .card.you{border-color:var(--you);border-width:2px}.card h3{font-size:.95rem;margin:0 0 4px}
 .meta{color:var(--mut);font-size:.8rem}.you-tag{color:var(--you);font-weight:700;font-size:.75rem;letter-spacing:.05em}
@@ -134,7 +134,6 @@ def _card(j):
     if j["your_call"]["needed"]:
         parts.append('<div class="you-tag">YOUR CALL</div>')
     parts.append(f'<h3>#{j["issue"]} {e(j["title"])}</h3>')
-    parts.append(f'<div class="meta">Runde {j["round"]}</div>')
     for r in j["rounds"]:
         chips = "".join(f'<span class="chip {e(c["verdict"])}">{e(c["name"])}: {e(c["verdict"])}</span>'
                         for c in r["chips"])

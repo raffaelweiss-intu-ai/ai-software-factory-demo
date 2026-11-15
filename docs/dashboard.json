@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-15T20:30:22+00:00",
+  "generated": "2026-11-15T21:27:12+00:00",
   "jobs": [
     {
       "id": "001-cancel-a-booking",
@@ -8,6 +8,10 @@
       "stage": "merged",
       "column": "merged",
       "round": 3,
+      "risk": "high",
+      "surfaces": [
+        "security"
+      ],
       "rounds": [
         {
           "round": 1,
@@ -189,6 +193,15 @@
           "minutes": null
         }
       ],
+      "lead_minutes": 1339,
+      "human_wait_minutes": 1303,
+      "machine_minutes": 36,
+      "progress": {
+        "position": "merge",
+        "waiting_for_human": false,
+        "rejected": false,
+        "done": true
+      },
       "your_call": {
         "needed": false,
         "reason": ""
@@ -201,6 +214,8 @@
       "stage": "merged",
       "column": "merged",
       "round": 1,
+      "risk": "low",
+      "surfaces": [],
       "rounds": [
         {
           "round": 1,
@@ -274,6 +289,15 @@
           "minutes": null
         }
       ],
+      "lead_minutes": 4,
+      "human_wait_minutes": 0,
+      "machine_minutes": 4,
+      "progress": {
+        "position": "merge",
+        "waiting_for_human": false,
+        "rejected": false,
+        "done": true
+      },
       "your_call": {
         "needed": false,
         "reason": ""
@@ -286,6 +310,11 @@
       "stage": "merged",
       "column": "merged",
       "round": 1,
+      "risk": "medium",
+      "surfaces": [
+        "ui",
+        "security"
+      ],
       "rounds": [
         {
           "round": 1,
@@ -367,6 +396,15 @@
           "minutes": null
         }
       ],
+      "lead_minutes": 5,
+      "human_wait_minutes": 0,
+      "machine_minutes": 5,
+      "progress": {
+        "position": "merge",
+        "waiting_for_human": false,
+        "rejected": false,
+        "done": true
+      },
       "your_call": {
         "needed": false,
         "reason": ""
@@ -379,6 +417,10 @@
       "stage": "needs-human",
       "column": "needs-human",
       "round": 1,
+      "risk": "high",
+      "surfaces": [
+        "security"
+      ],
       "rounds": [
         {
           "round": 1,
@@ -446,9 +488,18 @@
           "stage": "needs-human",
           "round": 1,
           "note": "approver ESCALATE: auth surface",
-          "minutes": null
+          "minutes": 1334
         }
       ],
+      "lead_minutes": 1338,
+      "human_wait_minutes": 1334,
+      "machine_minutes": 4,
+      "progress": {
+        "position": "approve",
+        "waiting_for_human": true,
+        "rejected": false,
+        "done": false
+      },
       "your_call": {
         "needed": true,
         "reason": "approver ESCALATE: auth surface"
@@ -461,6 +512,8 @@
       "stage": "needs-info",
       "column": "needs-info",
       "round": 0,
+      "risk": "low",
+      "surfaces": [],
       "rounds": [],
       "events": [
         {
@@ -475,9 +528,18 @@
           "stage": "needs-info",
           "round": 0,
           "note": "intake NEEDS-INFO",
-          "minutes": null
+          "minutes": 1333
         }
       ],
+      "lead_minutes": 1334,
+      "human_wait_minutes": 1333,
+      "machine_minutes": 1,
+      "progress": {
+        "position": "intake",
+        "waiting_for_human": true,
+        "rejected": false,
+        "done": false
+      },
       "your_call": {
         "needed": true,
         "reason": "intake NEEDS-INFO"
@@ -490,6 +552,10 @@
       "stage": "rejected",
       "column": "rejected",
       "round": 0,
+      "risk": "high",
+      "surfaces": [
+        "security"
+      ],
       "rounds": [],
       "events": [
         {
@@ -507,6 +573,15 @@
           "minutes": null
         }
       ],
+      "lead_minutes": 0,
+      "human_wait_minutes": 0,
+      "machine_minutes": 0,
+      "progress": {
+        "position": "intake",
+        "waiting_for_human": false,
+        "rejected": true,
+        "done": false
+      },
       "your_call": {
         "needed": false,
         "reason": "intake REJECT: personal data to third party, embedded skip-review text ignored"
@@ -516,6 +591,16 @@
   "summary": {
     "jobs": 6,
     "your_call": 2,
-    "bounces": {}
+    "bounces": {},
+    "merged_alone": 2,
+    "merged_with_human": 1,
+    "median_merged_minutes": 5,
+    "stage_minutes": {
+      "build": 33,
+      "needs-human": 2637,
+      "intake": 1,
+      "needs-info": 1333
+    },
+    "human_wait_share": 0.9875621890547264
   }
 }

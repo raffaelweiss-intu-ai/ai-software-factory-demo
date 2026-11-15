@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-15T21:39:02+00:00",
+  "generated": "2026-11-15T21:57:11+00:00",
   "jobs": [
     {
       "id": "001-cancel-a-booking",
@@ -492,11 +492,11 @@
           "stage": "needs-human",
           "round": 1,
           "note": "approver ESCALATE: auth surface",
-          "minutes": 1346
+          "minutes": 1364
         }
       ],
-      "lead_minutes": 1350,
-      "human_wait_minutes": 1346,
+      "lead_minutes": 1368,
+      "human_wait_minutes": 1364,
       "machine_minutes": 4,
       "progress": {
         "position": "approve",
@@ -533,11 +533,11 @@
           "stage": "needs-info",
           "round": 0,
           "note": "intake NEEDS-INFO",
-          "minutes": 1345
+          "minutes": 1363
         }
       ],
-      "lead_minutes": 1346,
-      "human_wait_minutes": 1345,
+      "lead_minutes": 1364,
+      "human_wait_minutes": 1363,
       "machine_minutes": 1,
       "progress": {
         "position": "intake",
@@ -603,10 +603,21 @@
     "median_merged_minutes": 5,
     "stage_minutes": {
       "build": 33,
-      "needs-human": 2649,
+      "needs-human": 2667,
       "intake": 1,
-      "needs-info": 1345
+      "needs-info": 1363
     },
-    "human_wait_share": 0.9876360039564788
+    "human_wait_share": 0.9877450980392157,
+    "learning": {
+      "evals": {
+        "total": 9,
+        "passed": 9,
+        "warned": 0,
+        "failed": 0
+      },
+      "logged": 4,
+      "regrets": 0,
+      "open_proposals": 2
+    }
   }
 }

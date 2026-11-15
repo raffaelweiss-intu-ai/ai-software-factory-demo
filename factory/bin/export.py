@@ -132,6 +132,21 @@ def _progress(raw, stage):
             "rejected": stage == "rejected", "done": stage == "merged"}
 
 
+def _learning(root):
+    base = Path(root) / "factory"
+    evals = None
+    f = base / "evals" / "last.json"
+    if f.exists():
+        d = json.loads(f.read_text())
+        evals = {k: d.get(k, 0) for k in ("total", "passed", "warned", "failed")}
+    log = base / "learning" / "log.jsonl"
+    entries = [json.loads(x) for x in log.read_text().splitlines() if x.strip()] if log.exists() else []
+    prop = base / "learning" / "proposals.md"
+    open_n = len(re.findall(r"^- \[ \]", prop.read_text(), re.M)) if prop.exists() else 0
+    return {"evals": evals, "logged": len(entries), "regrets": sum(1 for e in entries if e.get("regret")),
+            "open_proposals": open_n}
+
+
 def build(root, now=None):
     root = Path(root)
     now = now or datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -178,6 +193,7 @@ def build(root, now=None):
             "median_merged_minutes": int(statistics.median(j["lead_minutes"] for j in merged)) if merged else None,
             "stage_minutes": stage_minutes,
             "human_wait_share": (total_wait / total_lead) if total_lead else 0,
+            "learning": _learning(root),
         },
     }
 
@@ -323,6 +339,24 @@ def _pipeline(data):
     return '<div class="pipe">' + "".join(out) + "</div>"
 
 
+def _learning_panel(s):
+    L = s["learning"]
+    ev = L["evals"]
+    if ev:
+        ev_html = (f'<div class="kpi"><b>{ev["passed"]}/{ev["total"]}</b><span>Evals bestanden'
+                   + (f', {ev["warned"]} Warnung' if ev["warned"] else "")
+                   + (f', <u>{ev["failed"]} fehlgeschlagen</u>' if ev["failed"] else "") + "</span></div>")
+    else:
+        ev_html = '<div class="kpi"><b>–</b><span>noch keine Evals gelaufen</span></div>'
+    return ('<section class="panel"><h2>Lernen und Evals</h2>'
+            "<p>Die Fabrik prüft sich an festen Fällen und lernt aus Entscheidungen von Menschen. "
+            "Vorschläge ändern nie selbst die Regeln.</p>"
+            '<div class="kpis" style="margin:0">' + ev_html
+            + f'<div class="kpi"><b>{L["logged"]}</b><span>Aufträge im Lernprotokoll</span></div>'
+            + f'<div class="kpi{" you" if L["open_proposals"] else ""}"><b>{L["open_proposals"]}</b><span>offene Regel-Vorschläge</span></div>'
+            + f'<div class="kpi"><b>{L["regrets"]}</b><span>Selbst-Freigaben mit Befund</span></div></div></section>')
+
+
 def render_html(data):
     e = html.escape
     s = data["summary"]
@@ -354,6 +388,7 @@ def render_html(data):
         '<section class="panel"><h2>Wo es hakt</h2>'
         f"<p>Zeit je Stufe, summiert über alle Aufträge. Rückläufer: {bounce_text}.</p>"
         f'<div class="bars">{_bars(s)}</div></section>'
+        + _learning_panel(s) +
         f'<div class="board">{"".join(cols)}</div>'
         '<p class="foot">Statischer Export ohne Skript. Spezifikationen, Diffs und Prüfberichte sind nicht enthalten.</p>'
         "</main></body></html>"

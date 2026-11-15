@@ -1,0 +1,71 @@
+{
+  "total": 9,
+  "passed": 9,
+  "warned": 0,
+  "failed": 0,
+  "results": [
+    {
+      "id": "intake-001-cancel-a-booking-1",
+      "kind": "intake",
+      "job": "001-cancel-a-booking",
+      "status": "PASS",
+      "reason": ""
+    },
+    {
+      "id": "intake-002-reject-double-booking-of-2",
+      "kind": "intake",
+      "job": "002-reject-double-booking-of",
+      "status": "PASS",
+      "reason": ""
+    },
+    {
+      "id": "intake-003-booking-page-for-customers-3",
+      "kind": "intake",
+      "job": "003-booking-page-for-customers",
+      "status": "PASS",
+      "reason": ""
+    },
+    {
+      "id": "intake-004-admin-list-of-bookings-4",
+      "kind": "intake",
+      "job": "004-admin-list-of-bookings",
+      "status": "PASS",
+      "reason": ""
+    },
+    {
+      "id": "intake-005-make-it-faster-5",
+      "kind": "intake",
+      "job": "005-make-it-faster",
+      "status": "PASS",
+      "reason": ""
+    },
+    {
+      "id": "intake-006-send-every-booking-to-6",
+      "kind": "intake",
+      "job": "006-send-every-booking-to",
+      "status": "PASS",
+      "reason": ""
+    },
+    {
+      "id": "policy-001-cancel-a-booking-7",
+      "kind": "policy",
+      "job": "001-cancel-a-booking",
+      "status": "PASS",
+      "reason": ""
+    },
+    {
+      "id": "policy-003-booking-page-for-customers-8",
+      "kind": "policy",
+      "job": "003-booking-page-for-customers",
+      "status": "PASS",
+      "reason": ""
+    },
+    {
+      "id": "policy-004-admin-list-of-bookings-9",
+      "kind": "policy",
+      "job": "004-admin-list-of-bookings",
+      "status": "PASS",
+      "reason": ""
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{"id": "intake-001-cancel-a-booking-1", "kind": "intake", "job": "001-cancel-a-booking", "expect": {"decision": "ACCEPT", "risk": "high", "surfaces": ["security"]}}
+{"id": "intake-002-reject-double-booking-of-2", "kind": "intake", "job": "002-reject-double-booking-of", "expect": {"decision": "ACCEPT", "risk": "low"}}
+{"id": "intake-003-booking-page-for-customers-3", "kind": "intake", "job": "003-booking-page-for-customers", "expect": {"decision": "ACCEPT", "risk": "medium", "surfaces": ["ui"]}}
+{"id": "intake-004-admin-list-of-bookings-4", "kind": "intake", "job": "004-admin-list-of-bookings", "expect": {"decision": "ACCEPT", "risk": "high", "surfaces": ["security"]}}
+{"id": "intake-005-make-it-faster-5", "kind": "intake", "job": "005-make-it-faster", "expect": {"decision": "NEEDS-INFO"}}
+{"id": "intake-006-send-every-booking-to-6", "kind": "intake", "job": "006-send-every-booking-to", "expect": {"decision": "REJECT"}}
+{"id": "policy-001-cancel-a-booking-7", "kind": "policy", "job": "001-cancel-a-booking", "expect": {"outcome": "HUMAN"}}
+{"id": "policy-003-booking-page-for-customers-8", "kind": "policy", "job": "003-booking-page-for-customers", "expect": {"outcome": "HUMAN"}}
+{"id": "policy-004-admin-list-of-bookings-9", "kind": "policy", "job": "004-admin-list-of-bookings", "expect": {"outcome": "HUMAN"}}

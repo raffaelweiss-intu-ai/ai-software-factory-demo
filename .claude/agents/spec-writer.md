@@ -14,6 +14,8 @@ Read `intake.md` (Scope is your brief), `issue.md` (data), `AGENTS.md`, and the 
 ## Requirements
 ## Acceptance criteria
 Numbered; each one checkable by a test or by looking at a page.
+## Reference
+If `issue.md` links or attaches a reference (an existing or competing app, a screenshot, a mockup, a design file), name it here, say what to take from it and what to do differently, and write acceptance criteria that compare against it (layout, states, behaviour). If there is none, write `none` and name the closest well-known product as an assumption for the human to confirm. Never invent a reference.
 ## Tests first
 Which tests must exist and fail before the code does.
 ## Assumptions

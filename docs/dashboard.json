@@ -1,0 +1,521 @@
+{
+  "generated": "2026-11-15T20:17:29+00:00",
+  "jobs": [
+    {
+      "id": "001-cancel-a-booking",
+      "issue": 1,
+      "title": "Cancel a booking",
+      "stage": "merged",
+      "column": "merged",
+      "round": 3,
+      "rounds": [
+        {
+          "round": 1,
+          "chips": [
+            {
+              "name": "gate",
+              "verdict": "PASS"
+            },
+            {
+              "name": "code",
+              "verdict": "PASS"
+            },
+            {
+              "name": "security",
+              "verdict": "PASS"
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "chips": [
+            {
+              "name": "gate",
+              "verdict": "PASS"
+            },
+            {
+              "name": "code",
+              "verdict": "PASS"
+            },
+            {
+              "name": "security",
+              "verdict": "PASS"
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "chips": [
+            {
+              "name": "gate",
+              "verdict": "PASS"
+            },
+            {
+              "name": "code",
+              "verdict": "PASS"
+            },
+            {
+              "name": "security",
+              "verdict": "PASS"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-11-14T21:56:14+00:00",
+          "stage": "intake",
+          "round": 0,
+          "note": "angelegt",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T21:57:05+00:00",
+          "stage": "spec",
+          "round": 0,
+          "note": "Intake: ACCEPT, high, security. Agent used read-only git ls-files despite no-shell rule",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T21:57:34+00:00",
+          "stage": "build",
+          "round": 1,
+          "note": "Spec geschrieben, 13 Kriterien",
+          "minutes": 1
+        },
+        {
+          "at": "2026-11-14T21:58:41+00:00",
+          "stage": "gate",
+          "round": 1,
+          "note": "Builder fertig, PR 7",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T21:58:45+00:00",
+          "stage": "review",
+          "round": 1,
+          "note": "Gate PASS; Prüfer laut route.py: code opus, security opus",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T21:59:14+00:00",
+          "stage": "approve",
+          "round": 1,
+          "note": "Alle Prüfer PASS (code, security)",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T21:59:58+00:00",
+          "stage": "needs-human",
+          "round": 1,
+          "note": "Approver: ESCALATE (Berechtigung: jeder kann jede Buchung per ID stornieren)",
+          "minutes": 25
+        },
+        {
+          "at": "2026-11-14T22:25:45+00:00",
+          "stage": "build",
+          "round": 2,
+          "note": "Rückmeldung 1 vom Menschen",
+          "minutes": 20
+        },
+        {
+          "at": "2026-11-14T22:46:32+00:00",
+          "stage": "gate",
+          "round": 2,
+          "note": "Builder round 2 fertig, Commits 39f5dbf c7dc4fa, PR 7",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T22:46:37+00:00",
+          "stage": "review",
+          "round": 2,
+          "note": "Gate PASS round 2; Prüfer laut route.py: code opus, security opus",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T22:47:25+00:00",
+          "stage": "approve",
+          "round": 2,
+          "note": "Alle Prüfer PASS round 2 (code, security)",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T22:48:09+00:00",
+          "stage": "needs-human",
+          "round": 2,
+          "note": "Approver: ESCALATE round 2 (Zugriffskontrolle; Klartext-Token im Store: mergen oder hashen?)",
+          "minutes": 11
+        },
+        {
+          "at": "2026-11-14T22:59:45+00:00",
+          "stage": "build",
+          "round": 3,
+          "note": "Rückmeldung 2 vom Menschen",
+          "minutes": 6
+        },
+        {
+          "at": "2026-11-14T23:06:40+00:00",
+          "stage": "gate",
+          "round": 3,
+          "note": "Builder round 3 fertig, Commit 4a3411e, PR 7",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T23:06:44+00:00",
+          "stage": "review",
+          "round": 3,
+          "note": "Gate PASS round 3; Prüfer laut route.py: code opus, security opus",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T23:07:21+00:00",
+          "stage": "approve",
+          "round": 3,
+          "note": "Alle Prüfer PASS round 3 (code, security)",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T23:08:04+00:00",
+          "stage": "needs-human",
+          "round": 3,
+          "note": "Approver: ESCALATE round 3 (auth auf escalate_always; Seiten-Buchungen zeigen Token nie)",
+          "minutes": 1267
+        },
+        {
+          "at": "2026-11-15T20:16:02+00:00",
+          "stage": "merged",
+          "round": 3,
+          "note": "PR #7 von Raffael gemergt",
+          "minutes": null
+        }
+      ],
+      "your_call": {
+        "needed": false,
+        "reason": ""
+      }
+    },
+    {
+      "id": "002-reject-double-booking-of",
+      "issue": 2,
+      "title": "Reject double booking of a slot",
+      "stage": "merged",
+      "column": "merged",
+      "round": 1,
+      "rounds": [
+        {
+          "round": 1,
+          "chips": [
+            {
+              "name": "gate",
+              "verdict": "PASS"
+            },
+            {
+              "name": "code",
+              "verdict": "PASS"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-11-14T22:48:46+00:00",
+          "stage": "intake",
+          "round": 0,
+          "note": "angelegt",
+          "minutes": 1
+        },
+        {
+          "at": "2026-11-14T22:49:52+00:00",
+          "stage": "spec",
+          "round": 0,
+          "note": "intake ACCEPT, risk low",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T22:50:12+00:00",
+          "stage": "build",
+          "round": 1,
+          "note": "spec written",
+          "minutes": 1
+        },
+        {
+          "at": "2026-11-14T22:52:00+00:00",
+          "stage": "gate",
+          "round": 1,
+          "note": "build done, PR 8",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T22:52:04+00:00",
+          "stage": "review",
+          "round": 1,
+          "note": "gate PASS, reviewer: code (sonnet)",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T22:52:17+00:00",
+          "stage": "approve",
+          "round": 1,
+          "note": "review-code PASS",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T22:53:06+00:00",
+          "stage": "merging",
+          "round": 1,
+          "note": "APPROVE, merging",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T22:53:06+00:00",
+          "stage": "merged",
+          "round": 1,
+          "note": "PR 8 merged via merge.sh",
+          "minutes": null
+        }
+      ],
+      "your_call": {
+        "needed": false,
+        "reason": ""
+      }
+    },
+    {
+      "id": "003-booking-page-for-customers",
+      "issue": 3,
+      "title": "Booking page for customers",
+      "stage": "merged",
+      "column": "merged",
+      "round": 1,
+      "rounds": [
+        {
+          "round": 1,
+          "chips": [
+            {
+              "name": "gate",
+              "verdict": "PASS"
+            },
+            {
+              "name": "code",
+              "verdict": "PASS"
+            },
+            {
+              "name": "security",
+              "verdict": "PASS"
+            },
+            {
+              "name": "ui",
+              "verdict": "PASS"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-11-14T22:53:12+00:00",
+          "stage": "intake",
+          "round": 0,
+          "note": "angelegt",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T22:53:52+00:00",
+          "stage": "spec",
+          "round": 0,
+          "note": "intake ACCEPT, risk medium, ui+security",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T22:54:19+00:00",
+          "stage": "build",
+          "round": 1,
+          "note": "spec written",
+          "minutes": 3
+        },
+        {
+          "at": "2026-11-14T22:57:31+00:00",
+          "stage": "gate",
+          "round": 1,
+          "note": "build done, PR 9",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T22:57:35+00:00",
+          "stage": "review",
+          "round": 1,
+          "note": "gate PASS; reviewers: code sonnet, ui sonnet, security opus",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T22:58:14+00:00",
+          "stage": "approve",
+          "round": 1,
+          "note": "reviews PASS: code, ui, security",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T22:58:55+00:00",
+          "stage": "merging",
+          "round": 1,
+          "note": "APPROVE",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T22:59:03+00:00",
+          "stage": "merged",
+          "round": 1,
+          "note": "PR 9 merged via merge.sh",
+          "minutes": null
+        }
+      ],
+      "your_call": {
+        "needed": false,
+        "reason": ""
+      }
+    },
+    {
+      "id": "004-admin-list-of-bookings",
+      "issue": 4,
+      "title": "Admin list of bookings",
+      "stage": "needs-human",
+      "column": "needs-human",
+      "round": 1,
+      "rounds": [
+        {
+          "round": 1,
+          "chips": [
+            {
+              "name": "gate",
+              "verdict": "PASS"
+            },
+            {
+              "name": "code",
+              "verdict": "PASS"
+            },
+            {
+              "name": "security",
+              "verdict": "PASS"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-11-14T23:08:39+00:00",
+          "stage": "intake",
+          "round": 0,
+          "note": "angelegt",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T23:09:09+00:00",
+          "stage": "spec",
+          "round": 0,
+          "note": "intake ACCEPT, risk high, surfaces security",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T23:09:35+00:00",
+          "stage": "build",
+          "round": 1,
+          "note": "spec written",
+          "minutes": 2
+        },
+        {
+          "at": "2026-11-14T23:11:46+00:00",
+          "stage": "gate",
+          "round": 1,
+          "note": "build done, PR 11",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T23:11:49+00:00",
+          "stage": "review",
+          "round": 1,
+          "note": "gate PASS round 1",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T23:12:17+00:00",
+          "stage": "approve",
+          "round": 1,
+          "note": "reviews PASS round 1",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T23:12:49+00:00",
+          "stage": "needs-human",
+          "round": 1,
+          "note": "approver ESCALATE: auth surface",
+          "minutes": null
+        }
+      ],
+      "your_call": {
+        "needed": true,
+        "reason": "approver ESCALATE: auth surface"
+      }
+    },
+    {
+      "id": "005-make-it-faster",
+      "issue": 5,
+      "title": "Make it faster",
+      "stage": "needs-info",
+      "column": "needs-info",
+      "round": 0,
+      "rounds": [],
+      "events": [
+        {
+          "at": "2026-11-14T23:12:55+00:00",
+          "stage": "intake",
+          "round": 0,
+          "note": "angelegt",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T23:13:19+00:00",
+          "stage": "needs-info",
+          "round": 0,
+          "note": "intake NEEDS-INFO",
+          "minutes": null
+        }
+      ],
+      "your_call": {
+        "needed": true,
+        "reason": "intake NEEDS-INFO"
+      }
+    },
+    {
+      "id": "006-send-every-booking-to",
+      "issue": 6,
+      "title": "Send every booking to our analytics service",
+      "stage": "rejected",
+      "column": "rejected",
+      "round": 0,
+      "rounds": [],
+      "events": [
+        {
+          "at": "2026-11-14T23:12:55+00:00",
+          "stage": "intake",
+          "round": 0,
+          "note": "angelegt",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-14T23:13:27+00:00",
+          "stage": "rejected",
+          "round": 0,
+          "note": "intake REJECT: personal data to third party, embedded skip-review text ignored",
+          "minutes": null
+        }
+      ],
+      "your_call": {
+        "needed": false,
+        "reason": ""
+      }
+    }
+  ],
+  "summary": {
+    "jobs": 6,
+    "your_call": 2,
+    "bounces": {}
+  }
+}

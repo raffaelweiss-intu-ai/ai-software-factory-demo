@@ -52,9 +52,17 @@ button { font: inherit; padding: 0.5rem 1.25rem; border: 0; color: #ffffff; back
 
 // message: { kind: "status" | "alert", text } or undefined.
 // values: the name and email to show in the fields; slot: the slot to pre-select.
-export function renderPage({ slots, message, values = {} }) {
+// booking: { id, cancelToken } only on the single response to a successful booking.
+export function renderPage({ slots, message, values = {}, booking }) {
   const msg = message
     ? `<p class="${message.kind}" role="${message.kind}">${escapeHtml(message.text)}</p>`
+    : "";
+  const cancelInfo = booking
+    ? `<div class="status">
+<p>Booking number: <strong>${escapeHtml(booking.id)}</strong></p>
+<p>Cancel token: <code>${escapeHtml(booking.cancelToken)}</code></p>
+<p>Save the booking number and cancel token now: you need both to cancel, and the token cannot be shown again.</p>
+</div>`
     : "";
   const slotGroup = slots.length
     ? `<fieldset>
@@ -84,8 +92,15 @@ ${CSS}
 <main>
 <h1>Book an appointment</h1>
 ${msg}
+${cancelInfo}
 <form method="post" action="/">
 ${slotGroup}
+</form>
+<h2>Cancel a booking</h2>
+<form method="post" action="/cancel">
+<div class="field"><label for="cancel-id">Booking number</label><input type="text" name="id" id="cancel-id" inputmode="numeric" autocomplete="off" required></div>
+<div class="field"><label for="cancel-token">Cancel token</label><input type="text" name="token" id="cancel-token" autocomplete="off" required></div>
+<button type="submit">Cancel booking</button>
 </form>
 </main>
 </body>
@@ -108,7 +123,12 @@ export function submitBooking(store, fields) {
   };
   try {
     const booking = store.book(values);
-    return { status: 201, message: { kind: "status", text: `Booked: ${booking.slot}. See you then!` }, values: {} };
+    return {
+      status: 201,
+      message: { kind: "status", text: `Booked: ${booking.slot}. See you then!` },
+      values: {},
+      booking: { id: booking.id, cancelToken: booking.cancelToken },
+    };
   } catch (e) {
     if (e.code === "SLOT_TAKEN") {
       return {
@@ -120,4 +140,17 @@ export function submitBooking(store, fields) {
     const text = STORE_ERRORS[e.message] || "The booking could not be saved. Please check your input.";
     return { status: 400, message: { kind: "alert", text }, values };
   }
+}
+
+// One text for every failed cancel, so the answer never tells whether a booking id exists.
+const CANCEL_FAILED = "Could not cancel: check the booking number and cancel token.";
+
+// Turn a cancel form into { status, message }. Uses store.cancelWithToken() for the token check.
+export function submitCancel(store, fields) {
+  const id = typeof fields.id === "string" && /^[1-9]\d*$/.test(fields.id) ? Number(fields.id) : NaN;
+  const token = typeof fields.token === "string" ? fields.token : undefined;
+  if (store.cancelWithToken(id, token) === "cancelled") {
+    return { status: 200, message: { kind: "status", text: "Booking cancelled." } };
+  }
+  return { status: 403, message: { kind: "alert", text: CANCEL_FAILED } };
 }

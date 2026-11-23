@@ -1,6 +1,6 @@
 import http from "node:http";
 import { createStore } from "./store.js";
-import { FormError, MAX_FORM_BYTES, freeSlots, parseForm, renderPage, submitBooking } from "./page.js";
+import { FormError, MAX_FORM_BYTES, freeSlots, parseForm, renderPage, submitBooking, submitCancel } from "./page.js";
 
 const json = (res, status, body) => {
   res.writeHead(status, { "content-type": "application/json" });
@@ -20,8 +20,8 @@ const readJson = (req) =>
     });
   });
 
-const html = (res, status, body) => {
-  res.writeHead(status, { "content-type": "text/html; charset=utf-8" });
+const html = (res, status, body, headers = {}) => {
+  res.writeHead(status, { "content-type": "text/html; charset=utf-8", ...headers });
   res.end(body);
 };
 
@@ -69,8 +69,20 @@ export function createServer(store) {
       } catch {
         return html(res, 400, renderPage({ slots: freeSlots(store), message: FORM_UNREADABLE }));
       }
-      const { status, message, values } = submitBooking(store, fields);
-      return html(res, status, renderPage({ slots: freeSlots(store), message, values }));
+      const { status, message, values, booking } = submitBooking(store, fields);
+      // The plain cancel token is in this response only: keep it out of every cache.
+      const headers = booking ? { "cache-control": "no-store" } : {};
+      return html(res, status, renderPage({ slots: freeSlots(store), message, values, booking }), headers);
+    }
+    if (req.method === "POST" && pathname === "/cancel") {
+      let fields;
+      try {
+        fields = await readForm(req);
+      } catch {
+        return html(res, 400, renderPage({ slots: freeSlots(store), message: FORM_UNREADABLE }));
+      }
+      const { status, message } = submitCancel(store, fields);
+      return html(res, status, renderPage({ slots: freeSlots(store), message }));
     }
     const cancelMatch = req.method === "DELETE" && pathname.match(/^\/api\/bookings\/(\d+)$/);
     if (cancelMatch) {

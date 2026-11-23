@@ -202,3 +202,37 @@ test("the SHA-256 hash of the token is not accepted as the token", () => {
   }
   assert.equal(s.bookings().length, 1);
 });
+
+// Issue #13: names longer than 100 characters are refused.
+test("rejects a 101-character name, stores nothing and keeps the slot free", () => {
+  const s = createStore(SLOTS);
+  assert.throws(() => s.book({ slot: SLOTS[0], name: "a".repeat(101), email: "ada@example.com" }), {
+    message: "name is too long",
+  });
+  assert.equal(s.bookings().length, 0);
+  const b = s.book({ slot: SLOTS[0], name: "Ada", email: "ada@example.com" });
+  assert.equal(b.slot, SLOTS[0]);
+});
+
+test("accepts a 100-character name", () => {
+  const s = createStore(SLOTS);
+  const name = "a".repeat(100);
+  const b = s.book({ slot: SLOTS[0], name, email: "ada@example.com" });
+  assert.equal(b.name, name);
+});
+
+test("measures the name length after trimming", () => {
+  const s = createStore(SLOTS);
+  const b = s.book({ slot: SLOTS[0], name: `   ${"a".repeat(100)}   `, email: "ada@example.com" });
+  assert.equal(b.name, "a".repeat(100));
+  assert.throws(() => s.book({ slot: SLOTS[1], name: `  ${"a".repeat(101)}  `, email: "ada@example.com" }), {
+    message: "name is too long",
+  });
+});
+
+test("an empty or whitespace-only name still says name is required", () => {
+  const s = createStore(SLOTS);
+  for (const name of ["", "   "]) {
+    assert.throws(() => s.book({ slot: SLOTS[0], name, email: "ada@example.com" }), { message: "name is required" });
+  }
+});

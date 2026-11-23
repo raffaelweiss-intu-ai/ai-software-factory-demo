@@ -320,3 +320,15 @@ test("no endpoint other than POST /api/bookings exposes a token or its hash, inc
     }
   });
 });
+
+// Issue #13
+test("POST /api/bookings refuses a 101-character name with 400 and accepts 100", async () => {
+  await withServer([SLOT], async (send) => {
+    const long = await send({ slot: SLOT, name: "a".repeat(101), email: "ada@example.com" });
+    assert.equal(long.status, 400);
+    assert.deepEqual(await long.json(), { error: "name is too long" });
+    const ok = await send({ slot: SLOT, name: "a".repeat(100), email: "ada@example.com" });
+    assert.equal(ok.status, 201);
+    assert.equal((await ok.json()).name, "a".repeat(100));
+  });
+});

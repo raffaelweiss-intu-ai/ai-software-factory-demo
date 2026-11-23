@@ -288,3 +288,33 @@ test("JSON API is unchanged next to the page", async () => {
     assert.equal(res.status, 409);
   });
 });
+
+// Issue #13
+test("POST / with a 101-character name answers 400 with an alert and keeps the input", async () => {
+  await withServer([A, B], async ({ store, submit }) => {
+    const fields = { slot: A, name: "a".repeat(101), email: "ada@example.com" };
+    const res = await submit(fields);
+    assert.equal(res.status, 400);
+    const html = await res.text();
+    const msg = html.match(/<[a-z]+ [^>]*role="alert"[^>]*>([\s\S]*?)<\//);
+    assert.ok(msg, "has a role=alert container");
+    assert.match(msg[1], /name is too long/);
+    assert.equal(inputValue(html, "name"), fields.name);
+    assert.equal(inputValue(html, "email"), fields.email);
+    const slot = radios(html).find((r) => attr(r, "value") === A);
+    assert.ok(slot && /\bchecked\b/.test(slot), "slot stays selected");
+    assert.equal(store.bookings().length, 0);
+  });
+});
+
+test("POST / with a 100-character name books and confirms", async () => {
+  await withServer([A, B], async ({ store, submit }) => {
+    const res = await submit({ slot: A, name: "a".repeat(100), email: "ada@example.com" });
+    assert.equal(res.status, 201);
+    const html = await res.text();
+    const msg = html.match(/<[a-z]+ [^>]*role="status"[^>]*>([\s\S]*?)<\//);
+    assert.ok(msg, "has a role=status container");
+    assert.ok(msg[1].includes(A));
+    assert.equal(store.bookings().length, 1);
+  });
+});

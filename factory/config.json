@@ -21,10 +21,11 @@
     ".claude/settings.json",
     ".github/*",
     ".gitleaks.toml",
+    "factory/verify/*",
     "policy/*",
     "rules/*"
   ],
   "escalate_always": ["payments", "auth", "permissions", "deploy", "ci", "schema-migration", "new-dependency", "public-copy"],
-  "targets": { "prs_per_month": 2500, "human_hours_per_week": 10, "minutes_per_human_review": 10 },
+  "targets": { "prs_per_month": 2500, "human_hours_per_week": 10, "minutes_per_human_review": 10, "ramp_weeks": 26, "max_escape_rate": 0.02, "min_first_pass_rate": 0.7 },
   "autonomy": { "auto_merge": true, "min_confidence": "high", "max_risk": "low", "never_surfaces": ["security"], "max_auto_round": 1 }
 }

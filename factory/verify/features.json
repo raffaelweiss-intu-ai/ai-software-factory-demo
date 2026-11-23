@@ -1,0 +1,17 @@
+{
+  "ignore": ["test/*", "docs/*", "*.md", "factory/*", ".github/*", "package.json", "package-lock.json"],
+  "features": [
+    {
+      "id": "booking-api",
+      "description": "A client books, double-books, lists and cancels slots through the JSON API",
+      "paths": ["src/store.js", "src/server.js"],
+      "verify": { "cmd": "node factory/verify/booking-api.mjs", "timeout": 30 }
+    },
+    {
+      "id": "booking-page",
+      "description": "A customer books a slot on the server-rendered page",
+      "paths": ["src/page.js", "src/server.js"],
+      "verify": { "cmd": "node factory/verify/booking-page.mjs", "timeout": 30 }
+    }
+  ]
+}

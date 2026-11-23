@@ -66,6 +66,9 @@ def decide(job_dir, rnd, config):
     gate = (_field(_read(rdir / "checks.md"), "GATE") or "").upper()
     if gate != "PASS":
         reasons.append(f"Gate ist nicht PASS ({gate or 'kein Ergebnis'})")
+    gaps = _field(_read(rdir / "checks.md"), "VERIFY-GAPS")
+    if gaps and gaps.isdigit() and int(gaps) > 0:
+        reasons.append(f"{gaps} changed file(s) not covered by the feature map: unverified change needs a human")
     reviews = sorted(rdir.glob("review-*.md")) if rdir.exists() else []
     if not reviews:
         reasons.append("Kein Prüfbericht in dieser Runde")

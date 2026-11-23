@@ -16,3 +16,4 @@ secrets/
 # Factory state stays on the machine; the dashboard reads a sanitized export instead
 factory/jobs/
 .worktrees/
+factory/.jobs.lock

@@ -44,12 +44,14 @@ def run_checks(cmd, cwd):
     return ("PASS" if res.returncode == 0 else "FAIL"), "\n".join(log)
 
 
-def decide(check_verdict, hits):
-    return "PASS" if check_verdict == "PASS" and not hits else "FAIL"
+def decide(check_verdict, hits, verify_verdict="SKIP"):
+    return "PASS" if check_verdict == "PASS" and not hits and verify_verdict != "FAIL" else "FAIL"
 
 
-def render_report(final, hits, log):
+def render_report(final, hits, log, verify_text=""):
     report = [f"GATE: {final}", ""]
+    if verify_text:
+        report += [verify_text.rstrip(), ""]
     if hits:
         report += ["## Protected files changed", *[f"- {h}" for h in hits], ""]
     report += ["## Output of the checks (tail)", "```", log, "```"]
@@ -66,8 +68,13 @@ def gate(worktree, checks_script, protected, base="origin/main"):
         verdict, log = run_checks(["bash", str(script)], worktree)
     finally:
         script.unlink()
-    final = decide(verdict, hits)
-    return final, render_report(final, hits, log)
+    verify_verdict, verify_text = ("SKIP", "")
+    if verdict == "PASS" and not hits:
+        sys.path.insert(0, str(Path(__file__).parent))
+        import verify
+        verify_verdict, verify_text = verify.run(worktree, base)
+    final = decide(verdict, hits, verify_verdict)
+    return final, render_report(final, hits, log, verify_text)
 
 
 if __name__ == "__main__":

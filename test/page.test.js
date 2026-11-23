@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "../src/server.js";
 import { createStore } from "../src/store.js";
+import { renderPage, submitBooking } from "../src/page.js";
 
 const A = "2026-12-01T09:00";
 const B = "2026-12-01T10:00";
@@ -286,5 +287,169 @@ test("JSON API is unchanged next to the page", async () => {
       body: JSON.stringify({ slot: A, name: "Bob", email: "bob@example.com" }),
     });
     assert.equal(res.status, 409);
+  });
+});
+
+// Job 008: cancel from the booking page.
+
+const CANCEL_FAILED = "Could not cancel: check the booking number and cancel token.";
+const FORM_UNREADABLE_TEXT = "The form could not be read. Please try again.";
+const alertText = (html) => ((html.match(/<[a-z]+ [^>]*role="alert"[^>]*>([\s\S]*?)<\//) || [])[1]);
+const statusText = (html) => ((html.match(/<[a-z]+ [^>]*role="status"[^>]*>([\s\S]*?)<\//) || [])[1]);
+const TOKEN_RE = /[0-9a-f]{64}/g;
+const cancelForm = (html) => {
+  const start = html.indexOf('<form method="post" action="/cancel">');
+  return start === -1 ? "" : html.slice(start, html.indexOf("</form>", start) + 7);
+};
+const postCancel = (base, fields, headers = { "content-type": "application/x-www-form-urlencoded" }) =>
+  fetch(base + "/cancel", { method: "POST", headers, body: typeof fields === "string" ? fields : new URLSearchParams(fields).toString() });
+const bookViaPage = async (submit, fields = { slot: A, name: "Ada", email: "ada@example.com" }) => {
+  const res = await submit(fields);
+  const html = await res.text();
+  const tokens = html.match(TOKEN_RE) || [];
+  const id = (html.match(/Booking number:\s*<strong>(\d+)<\/strong>/) || [])[1];
+  return { res, html, tokens, id };
+};
+
+test("submitBooking success carries the booking id and cancelToken", () => {
+  const store = createStore([A]);
+  const result = submitBooking(store, { slot: A, name: "Ada", email: "ada@example.com" });
+  assert.equal(result.status, 201);
+  assert.equal(result.booking.id, store.bookings()[0].id);
+  assert.match(result.booking.cancelToken, /^[0-9a-f]{64}$/);
+  assert.equal(store.cancelWithToken(result.booking.id, result.booking.cancelToken), "cancelled");
+});
+
+test("submitBooking failure carries no booking", () => {
+  const store = createStore([A]);
+  assert.equal(submitBooking(store, { slot: "nope", name: "Ada", email: "ada@example.com" }).booking, undefined);
+});
+
+test("renderPage shows id and token once with a save-it note, escaped", () => {
+  const html = renderPage({ slots: [], booking: { id: `<b>7</b>`, cancelToken: `"><img src=x>` } });
+  assert.ok(!html.includes("<img"));
+  assert.ok(!html.includes("<b>7</b>"));
+  assert.ok(html.includes("&lt;b&gt;7&lt;/b&gt;"));
+  assert.ok(html.includes("&quot;&gt;&lt;img src=x&gt;"));
+  assert.match(html, /save/i);
+  assert.match(html, /cannot be shown again/i);
+  assert.ok(!/save/i.test(renderPage({ slots: [] }).replace(/<style>[\s\S]*?<\/style>/, "")), "no note without a booking");
+});
+
+test("renderPage always has a labelled cancel form posting to /cancel", () => {
+  for (const slots of [[A], []]) {
+    const html = renderPage({ slots });
+    const form = cancelForm(html);
+    assert.ok(form, "has the cancel form");
+    assert.match(html, /Cancel a booking/);
+    for (const name of ["id", "token"]) {
+      const tag = (form.match(new RegExp(`<input\\b[^>]*name="${name}"[^>]*>`)) || [])[0];
+      assert.ok(tag, `input ${name}`);
+      assert.equal(attr(tag, "type"), "text");
+      assert.equal(attr(tag, "autocomplete"), "off");
+      assert.match(tag, /\brequired\b/);
+      assert.ok(attr(tag, "id"));
+      assert.match(form, new RegExp(`<label for="${attr(tag, "id")}">[^<]+</label>`));
+    }
+    assert.match(form, /<button type="submit">[^<]+<\/button>/);
+    assert.ok(!/<script\b/i.test(html));
+  }
+});
+
+test("POST / answers 201, no-store, and shows id and a token that cancels the booking", async () => {
+  await withServer([A, B], async ({ store, submit }) => {
+    const { res, tokens, id } = await bookViaPage(submit);
+    assert.equal(res.status, 201);
+    assert.equal(res.headers.get("cache-control"), "no-store");
+    assert.equal(tokens.length >= 1, true, "token shown");
+    assert.equal(new Set(tokens).size, 1, "one token");
+    assert.equal(id, String(store.bookings()[0].id));
+    assert.equal(store.cancelWithToken(Number(id), tokens[0]), "cancelled");
+  });
+});
+
+test("the token is absent from later pages and failed responses", async () => {
+  await withServer([A, B], async ({ base, get, submit }) => {
+    const { tokens, id } = await bookViaPage(submit);
+    const token = tokens[0];
+    const later = [
+      await (await get()).text(),
+      await (await submit({ slot: A, name: "Bob", email: "bob@example.com" })).text(),
+      await (await submit({ slot: "nope", name: "Bob", email: "bob@example.com" })).text(),
+      await (await postCancel(base, { id, token: "wrong" })).text(),
+      await (await postCancel(base, { id, token })).text(),
+      await (await get()).text(),
+    ];
+    for (const html of later) assert.equal(html.includes(token), false);
+  });
+});
+
+test("POST /cancel with the shown values cancels end to end and frees the slot", async () => {
+  await withServer([A, B], async ({ store, base, submit, get }) => {
+    const { tokens, id } = await bookViaPage(submit);
+    const res = await postCancel(base, { id, token: tokens[0] });
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.equal(statusText(html), "Booking cancelled.");
+    assert.ok(radios(html).some((r) => attr(r, "value") === A), "slot free again in response");
+    assert.ok(radios(await (await get()).text()).some((r) => attr(r, "value") === A), "slot free again on GET");
+    assert.equal(store.bookings().length, 0);
+  });
+});
+
+test("POST /cancel failures answer 403 with one identical generic alert", async () => {
+  await withServer([A, B], async ({ store, base, submit }) => {
+    const { tokens, id } = await bookViaPage(submit);
+    const token = tokens[0];
+    const cases = [
+      { id, token: "wrong" },
+      { id, token: token.slice(1) },
+      { id, token: "" },
+      { id },
+      { id: "999", token },
+      { id: "abc", token },
+      { id: "", token },
+      { token },
+      {},
+    ];
+    for (const fields of cases) {
+      const res = await postCancel(base, fields);
+      assert.equal(res.status, 403, JSON.stringify(fields));
+      const html = await res.text();
+      assert.equal(alertText(html), CANCEL_FAILED, JSON.stringify(fields));
+      assert.equal(html.includes(token), false);
+    }
+    const empty = await fetch(base + "/cancel", { method: "POST" });
+    assert.equal(empty.status, 403);
+    assert.equal(alertText(await empty.text()), CANCEL_FAILED);
+    assert.equal(store.bookings().length, 1, "booking unchanged");
+  });
+});
+
+test("POST /cancel with an unreadable body answers 400 with the form alert", async () => {
+  await withServer([A], async ({ store, base, submit }) => {
+    const { tokens, id } = await bookViaPage(submit);
+    const bodies = [
+      postCancel(base, `id=${id}&token=${tokens[0]}`, { "content-type": "application/json" }),
+      postCancel(base, `id=${id}&token=${tokens[0]}`, { "content-type": "text/plain" }),
+      postCancel(base, "id=%ZZ&token=%E0%A4%A"),
+      postCancel(base, `id=${id}&token=${tokens[0]}&pad=` + "a".repeat(20_000)).catch(() => null),
+    ];
+    for (const p of bodies) {
+      const res = await p;
+      if (!res) continue;
+      assert.equal(res.status, 400);
+      assert.equal(alertText(await res.text()), FORM_UNREADABLE_TEXT);
+    }
+    assert.equal(store.bookings().length, 1);
+  });
+});
+
+test("markup in the name does not break the success page", async () => {
+  await withServer([A], async ({ submit }) => {
+    const { res, html } = await bookViaPage(submit, { slot: A, name: `<script>x</script>`, email: "a@b.c" });
+    assert.equal(res.status, 201);
+    assert.ok(!/<script\b/i.test(html));
+    assert.ok(cancelForm(html));
   });
 });

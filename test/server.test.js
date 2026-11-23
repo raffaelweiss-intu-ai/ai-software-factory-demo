@@ -297,12 +297,16 @@ test("no endpoint other than POST /api/bookings exposes a token or its hash, inc
         headers: { "content-type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams(fields).toString(),
       });
+    // The page booking response is the one place that shows Bob's own token (job 008); never Ada's.
+    const bobPage = await (await form({ slot: CANCEL_SLOTS[1], name: "Bob", email: "bob@example.com" })).text();
+    for (const f of forms) assert.equal(bobPage.includes(f), false);
+    const bobTokens = [...new Set(bobPage.match(/[0-9a-f]{64}/g) || [])];
+    assert.equal(bobTokens.length, 1, "the page booking shows exactly one token");
     const texts = [
       await (await fetch(url + "/")).text(),
       await (await fetch(url + "/api/slots")).text(),
       await (await fetch(url + "/api/bookings")).text(),
       await (await fetch(url + `/api/bookings/${id}`)).text(),
-      await (await form({ slot: CANCEL_SLOTS[1], name: "Bob", email: "bob@example.com" })).text(),
       await (await form({ slot: CANCEL_SLOTS[0], name: "Cy", email: "cy@example.com" })).text(),
       await (await form({ slot: "nope", name: "Cy", email: "cy@example.com" })).text(),
       await (await fetch(url + "/")).text(),
@@ -314,7 +318,7 @@ test("no endpoint other than POST /api/bookings exposes a token or its hash, inc
     assert.equal(store.bookings().length, 1, "the page booking of slot 2 is still there");
     for (const text of texts) {
       for (const f of forms) assert.equal(text.includes(f), false);
-      // Also covers the token of the booking made through the page, which no test can read.
+      assert.equal(text.includes(bobTokens[0]), false);
       assert.doesNotMatch(text, /[0-9a-f]{64}/);
       assert.doesNotMatch(text, /[A-Za-z0-9+/]{43}=/);
     }

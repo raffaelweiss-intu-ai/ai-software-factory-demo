@@ -52,6 +52,7 @@ const FORM_UNREADABLE = { kind: "alert", text: "The form could not be read. Plea
 export function createServer(store) {
   return http.createServer(async (req, res) => {
     const { pathname } = new URL(req.url, "http://localhost");
+    if (req.method === "GET" && pathname === "/healthz") return json(res, 200, { status: "ok" });
     if (req.method === "GET" && pathname === "/api/slots") return json(res, 200, store.slots());
     if (req.method === "POST" && pathname === "/api/bookings") {
       try {

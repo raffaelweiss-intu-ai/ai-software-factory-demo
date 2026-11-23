@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-23T20:56:59+00:00",
+  "generated": "2026-11-23T22:31:55+00:00",
   "jobs": [
     {
       "id": "001-cancel-a-booking",
@@ -492,11 +492,11 @@
           "stage": "needs-human",
           "round": 1,
           "note": "approver ESCALATE: auth surface",
-          "minutes": 12824
+          "minutes": 12919
         }
       ],
-      "lead_minutes": 12828,
-      "human_wait_minutes": 12824,
+      "lead_minutes": 12923,
+      "human_wait_minutes": 12919,
       "machine_minutes": 4,
       "progress": {
         "position": "approve",
@@ -533,11 +533,11 @@
           "stage": "needs-info",
           "round": 0,
           "note": "intake NEEDS-INFO",
-          "minutes": 12823
+          "minutes": 12918
         }
       ],
-      "lead_minutes": 12824,
-      "human_wait_minutes": 12823,
+      "lead_minutes": 12919,
+      "human_wait_minutes": 12918,
       "machine_minutes": 1,
       "progress": {
         "position": "intake",
@@ -592,22 +592,297 @@
         "needed": false,
         "reason": "intake REJECT: personal data to third party, embedded skip-review text ignored"
       }
+    },
+    {
+      "id": "007-add-a-health-endpoint",
+      "issue": 14,
+      "title": "Add a health endpoint",
+      "stage": "approve",
+      "column": "approve",
+      "round": 1,
+      "risk": "low",
+      "surfaces": [],
+      "confidence": "high",
+      "rounds": [
+        {
+          "round": 1,
+          "chips": [
+            {
+              "name": "gate",
+              "verdict": "PASS"
+            },
+            {
+              "name": "code",
+              "verdict": "PASS"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-11-23T22:27:08+00:00",
+          "stage": "intake",
+          "round": 0,
+          "note": "angelegt",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-23T22:27:48+00:00",
+          "stage": "spec",
+          "round": 0,
+          "note": "accepted",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-23T22:27:48+00:00",
+          "stage": "build",
+          "round": 1,
+          "note": "spec written",
+          "minutes": 1
+        },
+        {
+          "at": "2026-11-23T22:28:54+00:00",
+          "stage": "gate",
+          "round": 1,
+          "note": "build done",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-23T22:29:42+00:00",
+          "stage": "review",
+          "round": 1,
+          "note": "gate pass",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-23T22:30:19+00:00",
+          "stage": "approve",
+          "round": 1,
+          "note": "reviews pass",
+          "minutes": 1
+        }
+      ],
+      "lead_minutes": 4,
+      "human_wait_minutes": 0,
+      "machine_minutes": 4,
+      "progress": {
+        "position": "approve",
+        "waiting_for_human": false,
+        "rejected": false,
+        "done": false
+      },
+      "your_call": {
+        "needed": false,
+        "reason": ""
+      }
+    },
+    {
+      "id": "008-booking-page-cannot-cancel",
+      "issue": 10,
+      "title": "Booking page cannot cancel: it drops the cancelToken",
+      "stage": "needs-human",
+      "column": "needs-human",
+      "round": 1,
+      "risk": "medium",
+      "surfaces": [
+        "ui",
+        "security"
+      ],
+      "confidence": "medium",
+      "rounds": [
+        {
+          "round": 1,
+          "chips": [
+            {
+              "name": "gate",
+              "verdict": "PASS"
+            },
+            {
+              "name": "code",
+              "verdict": "PASS"
+            },
+            {
+              "name": "security",
+              "verdict": "PASS"
+            },
+            {
+              "name": "ui",
+              "verdict": "PASS"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-11-23T22:27:08+00:00",
+          "stage": "intake",
+          "round": 0,
+          "note": "angelegt",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-23T22:27:49+00:00",
+          "stage": "spec",
+          "round": 0,
+          "note": "accepted",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-23T22:27:49+00:00",
+          "stage": "build",
+          "round": 1,
+          "note": "spec written",
+          "minutes": 2
+        },
+        {
+          "at": "2026-11-23T22:30:27+00:00",
+          "stage": "gate",
+          "round": 1,
+          "note": "build done",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-23T22:30:29+00:00",
+          "stage": "review",
+          "round": 1,
+          "note": "gate pass",
+          "minutes": 1
+        },
+        {
+          "at": "2026-11-23T22:31:49+00:00",
+          "stage": "approve",
+          "round": 1,
+          "note": "reviews pass",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-23T22:31:50+00:00",
+          "stage": "needs-human",
+          "round": 1,
+          "note": "Approver sagt ESCALATE, nicht APPROVE; Konfidenz medium liegt unter high; Risiko medium liegt über low; Fläche braucht immer einen Menschen: security",
+          "minutes": 0
+        }
+      ],
+      "lead_minutes": 4,
+      "human_wait_minutes": 0,
+      "machine_minutes": 4,
+      "progress": {
+        "position": "approve",
+        "waiting_for_human": true,
+        "rejected": false,
+        "done": false
+      },
+      "your_call": {
+        "needed": true,
+        "reason": "Approver sagt ESCALATE, nicht APPROVE; Konfidenz medium liegt unter high; Risiko medium liegt über low; Fläche braucht immer einen Menschen: security"
+      }
+    },
+    {
+      "id": "009-reject-booking-names-longer",
+      "issue": 13,
+      "title": "Reject booking names longer than 100 characters",
+      "stage": "approve",
+      "column": "approve",
+      "round": 1,
+      "risk": "low",
+      "surfaces": [
+        "ui"
+      ],
+      "confidence": "high",
+      "rounds": [
+        {
+          "round": 1,
+          "chips": [
+            {
+              "name": "gate",
+              "verdict": "PASS"
+            },
+            {
+              "name": "code",
+              "verdict": "PASS"
+            },
+            {
+              "name": "ui",
+              "verdict": "PASS"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-11-23T22:27:08+00:00",
+          "stage": "intake",
+          "round": 0,
+          "note": "angelegt",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-23T22:27:49+00:00",
+          "stage": "spec",
+          "round": 0,
+          "note": "accepted",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-23T22:27:49+00:00",
+          "stage": "build",
+          "round": 1,
+          "note": "spec written",
+          "minutes": 1
+        },
+        {
+          "at": "2026-11-23T22:29:37+00:00",
+          "stage": "gate",
+          "round": 1,
+          "note": "build done",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-23T22:29:42+00:00",
+          "stage": "review",
+          "round": 1,
+          "note": "gate pass",
+          "minutes": 0
+        },
+        {
+          "at": "2026-11-23T22:30:27+00:00",
+          "stage": "approve",
+          "round": 1,
+          "note": "reviews pass",
+          "minutes": 1
+        }
+      ],
+      "lead_minutes": 4,
+      "human_wait_minutes": 0,
+      "machine_minutes": 4,
+      "progress": {
+        "position": "approve",
+        "waiting_for_human": false,
+        "rejected": false,
+        "done": false
+      },
+      "your_call": {
+        "needed": false,
+        "reason": ""
+      }
     }
   ],
   "summary": {
-    "jobs": 6,
-    "your_call": 2,
+    "jobs": 9,
+    "your_call": 3,
     "bounces": {},
     "merged_alone": 2,
     "merged_with_human": 1,
     "median_merged_minutes": 5,
     "stage_minutes": {
-      "build": 33,
-      "needs-human": 14127,
+      "build": 37,
+      "needs-human": 14222,
       "intake": 1,
-      "needs-info": 12823
+      "needs-info": 12918,
+      "approve": 2,
+      "review": 1
     },
-    "human_wait_share": 0.9981481481481481,
+    "human_wait_share": 0.9977207558267774,
     "learning": {
       "evals": {
         "total": 9,
@@ -618,16 +893,55 @@
       "logged": 4,
       "regrets": 0,
       "open_proposals": 2,
-      "levels": {}
+      "levels": {
+        "architecture": 2
+      }
     },
     "throughput": {
+      "ramp": {
+        "weeks": [
+          {
+            "merged": 0
+          },
+          {
+            "merged": 0
+          },
+          {
+            "merged": 0
+          },
+          {
+            "merged": 0
+          },
+          {
+            "merged": 0
+          },
+          {
+            "merged": 0
+          },
+          {
+            "merged": 3
+          },
+          {
+            "merged": 0
+          }
+        ],
+        "this_week": 0,
+        "target_per_week": 583,
+        "horizon_weeks": 26,
+        "weekly_growth_needed": 0.27753223595049015,
+        "next_week_goal": 1,
+        "bottleneck": {
+          "kind": "autonomy",
+          "text": "Only 67 % merge without a human, the target needs 90 %. Find why jobs go to a human and fix it higher up the ladder."
+        }
+      },
       "target_per_month": 2500,
       "human_hours_per_week": 10,
       "minutes_per_human_review": 10,
-      "window_days": 9,
+      "window_days": 10,
       "merged_in_window": 3,
-      "projected_per_month": 10,
-      "progress_to_target": 0.004,
+      "projected_per_month": 9,
+      "progress_to_target": 0.0036,
       "needed_per_day": 83.3,
       "auto_merge_rate": 0.6666666666666666,
       "first_pass_rate": 0.6666666666666666,

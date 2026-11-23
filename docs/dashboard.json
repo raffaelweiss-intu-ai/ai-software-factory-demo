@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-15T21:57:11+00:00",
+  "generated": "2026-11-23T20:56:59+00:00",
   "jobs": [
     {
       "id": "001-cancel-a-booking",
@@ -492,11 +492,11 @@
           "stage": "needs-human",
           "round": 1,
           "note": "approver ESCALATE: auth surface",
-          "minutes": 1364
+          "minutes": 12824
         }
       ],
-      "lead_minutes": 1368,
-      "human_wait_minutes": 1364,
+      "lead_minutes": 12828,
+      "human_wait_minutes": 12824,
       "machine_minutes": 4,
       "progress": {
         "position": "approve",
@@ -533,11 +533,11 @@
           "stage": "needs-info",
           "round": 0,
           "note": "intake NEEDS-INFO",
-          "minutes": 1363
+          "minutes": 12823
         }
       ],
-      "lead_minutes": 1364,
-      "human_wait_minutes": 1363,
+      "lead_minutes": 12824,
+      "human_wait_minutes": 12823,
       "machine_minutes": 1,
       "progress": {
         "position": "intake",
@@ -603,11 +603,11 @@
     "median_merged_minutes": 5,
     "stage_minutes": {
       "build": 33,
-      "needs-human": 2667,
+      "needs-human": 14127,
       "intake": 1,
-      "needs-info": 1363
+      "needs-info": 12823
     },
-    "human_wait_share": 0.9877450980392157,
+    "human_wait_share": 0.9981481481481481,
     "learning": {
       "evals": {
         "total": 9,
@@ -617,7 +617,27 @@
       },
       "logged": 4,
       "regrets": 0,
-      "open_proposals": 2
+      "open_proposals": 2,
+      "levels": {}
+    },
+    "throughput": {
+      "target_per_month": 2500,
+      "human_hours_per_week": 10,
+      "minutes_per_human_review": 10,
+      "window_days": 9,
+      "merged_in_window": 3,
+      "projected_per_month": 10,
+      "progress_to_target": 0.004,
+      "needed_per_day": 83.3,
+      "auto_merge_rate": 0.6666666666666666,
+      "first_pass_rate": 0.6666666666666666,
+      "human_wait_per_merged_minutes": 434,
+      "human_review_capacity_per_month": 257,
+      "required_auto_merge_rate": 0.8971428571428571,
+      "max_target_at_current_autonomy": 771,
+      "escape_rate": 0.0,
+      "merged_total": 3,
+      "sample_ok": false
     }
   }
 }

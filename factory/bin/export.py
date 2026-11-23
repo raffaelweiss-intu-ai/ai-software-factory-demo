@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
-"""Dashboard-Export der Fabrik: liest factory/jobs und schreibt eine bereinigte, statische Seite.
+"""Dashboard export of the factory: reads factory/jobs and writes a sanitized, static page.
 
-Aufruf (im Projektordner):
+Usage (in the project folder):
   export.py [--out docs]
 
-Schreibt `<out>/dashboard.json` und `<out>/index.html` (reines HTML und CSS, kein Skript,
-keine externen Ressourcen). Exportiert werden nur Stufe, Runde, Titel, Risiko, Prüfergebnisse,
-Zeiten und bereinigte Notizen. Spezifikationen, Diffs und Prüfberichte bleiben draußen.
+Writes `<out>/dashboard.json` and `<out>/index.html` (plain HTML and CSS, no script,
+no external resources). Only stage, round, title, risk, reviewer verdicts, times and
+sanitized notes are exported. Specs, diffs and review reports stay out.
+
+The page answers two questions: where does a job get stuck, and what has to change to reach the
+monthly target (`targets` in `factory/config.json`, default 2,500 merged PRs a month).
 """
 import html
 import json
+import math
 import re
 import statistics
 import sys
@@ -25,9 +29,12 @@ STEPS = ["intake", "spec", "build", "gate", "review", "approve", "merge"]
 STEP_OF = {"intake": "intake", "needs-info": "intake", "spec": "spec", "build": "build", "gate": "gate",
            "review": "review", "approve": "approve", "merging": "merge", "merged": "merge",
            "rejected": "intake"}
-LABEL = {"intake": "Intake", "needs-info": "Rückfrage", "spec": "Spezifikation", "build": "Bau",
-         "gate": "Gate", "review": "Prüfer", "approve": "Approver", "merging": "Merge",
-         "needs-human": "Wartet auf Mensch", "merge": "Merge", "merged": "Gemergt", "rejected": "Abgelehnt"}
+LABEL = {"intake": "Intake", "needs-info": "Question", "spec": "Spec", "build": "Build",
+         "gate": "Gate", "review": "Review", "approve": "Approve", "merging": "Merge",
+         "needs-human": "Waiting for human", "merge": "Merge", "merged": "Merged", "rejected": "Rejected"}
+TARGET_DEFAULTS = {"prs_per_month": 2500, "human_hours_per_week": 10, "minutes_per_human_review": 10}
+WINDOW_DAYS = 30
+MIN_SAMPLE = 30
 
 _REDACTIONS = [
     (re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+"), "[email]"),
@@ -143,8 +150,50 @@ def _learning(root):
     entries = [json.loads(x) for x in log.read_text().splitlines() if x.strip()] if log.exists() else []
     prop = base / "learning" / "proposals.md"
     open_n = len(re.findall(r"^- \[ \]", prop.read_text(), re.M)) if prop.exists() else 0
+    lv = base / "learning" / "levels.json"
+    levels = {}
+    for level in (json.loads(lv.read_text()).values() if lv.exists() else []):
+        levels[level] = levels.get(level, 0) + 1
     return {"evals": evals, "logged": len(entries), "regrets": sum(1 for e in entries if e.get("regret")),
-            "open_proposals": open_n}
+            "open_proposals": open_n, "levels": levels, "_entries": entries}
+
+
+def _targets(root):
+    f = Path(root) / "factory" / "config.json"
+    cfg = json.loads(f.read_text()).get("targets", {}) if f.exists() else {}
+    return {k: cfg.get(k, v) for k, v in TARGET_DEFAULTS.items()}
+
+
+def _throughput(root, jobs, learning, now):
+    """The numbers that decide whether the monthly target is reachable, and the assumptions behind them."""
+    t = _targets(root)
+    merged = [j for j in jobs if j["stage"] == "merged"]
+    stamps = [_ts(e["at"]) for j in jobs for e in j["events"]]
+    window = 1
+    if stamps:
+        window = min(WINDOW_DAYS, max(1, math.ceil((_ts(now) - min(stamps)).total_seconds() / 86400)))
+    cutoff = _ts(now).timestamp() - WINDOW_DAYS * 86400
+    recent = [j for j in merged if j["events"] and _ts(j["events"][-1]["at"]).timestamp() >= cutoff]
+    projected = round(len(recent) / window * WINDOW_DAYS)
+    auto = (sum(1 for j in merged if j["human_wait_minutes"] == 0) / len(merged)) if merged else None
+    first_pass = (sum(1 for j in merged if j["round"] <= 1) / len(merged)) if merged else None
+    capacity = (t["human_hours_per_week"] * WINDOW_DAYS / 7) * 60 / t["minutes_per_human_review"]
+    entries = learning["_entries"]
+    autos = [e for e in entries if e.get("outcome") == "auto"]
+    return {
+        **{"target_per_month": t["prs_per_month"], "human_hours_per_week": t["human_hours_per_week"],
+           "minutes_per_human_review": t["minutes_per_human_review"]},
+        "window_days": window, "merged_in_window": len(recent), "projected_per_month": projected,
+        "progress_to_target": projected / t["prs_per_month"] if t["prs_per_month"] else 0,
+        "needed_per_day": round(t["prs_per_month"] / WINDOW_DAYS, 1),
+        "auto_merge_rate": auto, "first_pass_rate": first_pass,
+        "human_wait_per_merged_minutes": int(sum(j["human_wait_minutes"] for j in merged) / len(merged)) if merged else None,
+        "human_review_capacity_per_month": round(capacity),
+        "required_auto_merge_rate": max(0.0, 1 - capacity / t["prs_per_month"]) if t["prs_per_month"] else 0.0,
+        "max_target_at_current_autonomy": round(capacity / (1 - auto)) if auto is not None and auto < 1 else None,
+        "escape_rate": (sum(1 for e in autos if e.get("regret")) / len(autos)) if autos else None,
+        "merged_total": len(merged), "sample_ok": len(merged) >= MIN_SAMPLE,
+    }
 
 
 def build(root, now=None):
@@ -181,6 +230,9 @@ def build(root, now=None):
     merged = [j for j in jobs if j["stage"] == "merged"]
     total_lead = sum(j["lead_minutes"] for j in jobs)
     total_wait = sum(j["human_wait_minutes"] for j in jobs)
+    learning = _learning(root)
+    throughput = _throughput(root, jobs, learning, now)
+    learning.pop("_entries")
     return {
         "generated": now,
         "jobs": jobs,
@@ -193,7 +245,8 @@ def build(root, now=None):
             "median_merged_minutes": int(statistics.median(j["lead_minutes"] for j in merged)) if merged else None,
             "stage_minutes": stage_minutes,
             "human_wait_share": (total_wait / total_lead) if total_lead else 0,
-            "learning": _learning(root),
+            "learning": learning,
+            "throughput": throughput,
         },
     }
 
@@ -213,6 +266,8 @@ h1{font-size:clamp(1.8rem,4vw,2.6rem);margin:6px 0 6px;letter-spacing:-.02em}
 .kpi{background:var(--bg2);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
 .kpi b{display:block;font-size:2.4rem;line-height:1.1;letter-spacing:-.03em;background:linear-gradient(120deg,#fff,var(--vl));-webkit-background-clip:text;background-clip:text;color:transparent;white-space:nowrap}
 .kpi span{color:var(--mut);font-size:.85rem}
+.panel .kpi b{font-size:1.9rem}
+.panel .kpis{grid-template-columns:repeat(auto-fit,minmax(215px,1fr))}
 .kpi.you{border-color:var(--you);box-shadow:0 0 0 1px var(--you),0 0 28px rgba(192,132,252,.35)}
 .kpi.you b{background:linear-gradient(120deg,#f5d0fe,var(--you));-webkit-background-clip:text;background-clip:text}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:24px}
@@ -260,6 +315,8 @@ h1{font-size:clamp(1.8rem,4vw,2.6rem);margin:6px 0 6px;letter-spacing:-.02em}
 @media (prefers-reduced-motion:reduce){.link{animation:none}}
 @media (max-width:760px){.pipe{overflow-x:auto;padding-bottom:6px}.bar{grid-template-columns:96px 1fr 78px;gap:6px}}
 .foot{color:var(--mut);font-size:.78rem;margin-top:8px}
+.goal{height:14px;border-radius:99px;background:var(--line);overflow:hidden}
+.goal i{display:block;height:100%;min-width:4px;border-radius:99px;background:linear-gradient(90deg,var(--v1),var(--cy))}
 """
 
 
@@ -276,7 +333,7 @@ def _step_dots(progress):
         elif i == idx:
             cls += " rej" if progress["rejected"] else (" wait" if progress["waiting_for_human"] else " cur")
         out.append(f'<span class="{cls}" title="{html.escape(LABEL.get(name, name))}"></span>')
-    return '<div class="steps" role="img" aria-label="Fortschritt: {}">{}</div>'.format(
+    return '<div class="steps" role="img" aria-label="Progress: {}">{}</div>'.format(
         html.escape(LABEL.get(pos, pos or "")), "".join(out))
 
 
@@ -287,21 +344,21 @@ def _card(j):
     parts.append(f'<div class="top"><span class="meta">#{j["issue"]}</span>'
                  + ('<span class="you-tag">YOUR CALL</span>' if need else "") + "</div>")
     parts.append(f'<h3>{e(j["title"])}</h3>')
-    tags = [f'<span class="tag risk-{e(j["risk"])}">Risiko {e(j["risk"])}</span>']
+    tags = [f'<span class="tag risk-{e(j["risk"])}">Risk {e(j["risk"])}</span>']
     tags += [f'<span class="tag">{e(s)}</span>' for s in j["surfaces"]]
     if j.get("confidence"):
-        tags.append(f'<span class="tag conf-{e(j["confidence"])}">Konfidenz {e(j["confidence"])}</span>')
+        tags.append(f'<span class="tag conf-{e(j["confidence"])}">Confidence {e(j["confidence"])}</span>')
     parts.append(f'<div class="tags">{"".join(tags)}</div>')
     parts.append(_step_dots(j["progress"]))
     for r in j["rounds"]:
         chips = "".join(f'<span class="chip {e(c["verdict"])}">{e(c["name"])} {e(c["verdict"])}</span>'
                         for c in r["chips"])
-        parts.append(f'<div class="rnd"><span>Runde {r["round"]}</span>{chips}</div>')
+        parts.append(f'<div class="rnd"><span>Round {r["round"]}</span>{chips}</div>')
     if j["your_call"]["reason"]:
         parts.append(f'<div class="reason">{e(j["your_call"]["reason"])}</div>')
-    parts.append(f'<div class="times"><span>Gesamt <b>{fmt_minutes(j["lead_minutes"])}</b></span>'
-                 f'<span>Maschine <b>{fmt_minutes(j["machine_minutes"])}</b></span>'
-                 f'<span>Mensch <b>{fmt_minutes(j["human_wait_minutes"])}</b></span></div>')
+    parts.append(f'<div class="times"><span>Total <b>{fmt_minutes(j["lead_minutes"])}</b></span>'
+                 f'<span>Machine <b>{fmt_minutes(j["machine_minutes"])}</b></span>'
+                 f'<span>Human <b>{fmt_minutes(j["human_wait_minutes"])}</b></span></div>')
     parts.append("</div>")
     return "".join(parts)
 
@@ -339,22 +396,66 @@ def _pipeline(data):
     return '<div class="pipe">' + "".join(out) + "</div>"
 
 
+def _pct(x):
+    return "–" if x is None else f"{round(100 * x)} %"
+
+
+LEVEL_ORDER = ["architecture", "static-check", "rule", "skill", "guide"]
+
+
+def _levels_html(levels):
+    if not levels:
+        return ""
+    tags = "".join(f'<span class="tag">{html.escape(l)} · {levels[l]}</span>' for l in LEVEL_ORDER if l in levels)
+    return ('<p class="foot">Lessons by fix level, strongest first. A mistake fixed in the code cannot come back; '
+            f'one fixed in a guide can.</p><div class="tags">{tags}</div>')
+
+
 def _learning_panel(s):
     L = s["learning"]
     ev = L["evals"]
     if ev:
-        ev_html = (f'<div class="kpi"><b>{ev["passed"]}/{ev["total"]}</b><span>Evals bestanden'
-                   + (f', {ev["warned"]} Warnung' if ev["warned"] else "")
-                   + (f', <u>{ev["failed"]} fehlgeschlagen</u>' if ev["failed"] else "") + "</span></div>")
+        ev_html = (f'<div class="kpi"><b>{ev["passed"]}/{ev["total"]}</b><span>evals passed'
+                   + (f', {ev["warned"]} warning' + ("s" if ev["warned"] != 1 else "") if ev["warned"] else "")
+                   + (f', <u>{ev["failed"]} failed</u>' if ev["failed"] else "") + "</span></div>")
     else:
-        ev_html = '<div class="kpi"><b>–</b><span>noch keine Evals gelaufen</span></div>'
-    return ('<section class="panel"><h2>Lernen und Evals</h2>'
-            "<p>Die Fabrik prüft sich an festen Fällen und lernt aus Entscheidungen von Menschen. "
-            "Vorschläge ändern nie selbst die Regeln.</p>"
+        ev_html = '<div class="kpi"><b>–</b><span>no evals run yet</span></div>'
+    return ('<section class="panel"><h2>Learning and evals</h2>'
+            "<p>The factory checks itself against fixed cases and learns from human decisions. "
+            "Proposals never change the rules by themselves.</p>"
             '<div class="kpis" style="margin:0">' + ev_html
-            + f'<div class="kpi"><b>{L["logged"]}</b><span>Aufträge im Lernprotokoll</span></div>'
-            + f'<div class="kpi{" you" if L["open_proposals"] else ""}"><b>{L["open_proposals"]}</b><span>offene Regel-Vorschläge</span></div>'
-            + f'<div class="kpi"><b>{L["regrets"]}</b><span>Selbst-Freigaben mit Befund</span></div></div></section>')
+            + f'<div class="kpi"><b>{L["logged"]}</b><span>jobs in the learning log</span></div>'
+            + f'<div class="kpi{" you" if L["open_proposals"] else ""}"><b>{L["open_proposals"]}</b><span>open rule proposals</span></div>'
+            + f'<div class="kpi"><b>{L["regrets"]}</b><span>self-merges with a defect</span></div></div>'
+            + _levels_html(L["levels"]) + "</section>")
+
+
+def _throughput_panel(s):
+    t = s["throughput"]
+    target = f'{t["target_per_month"]:,}'
+    bar = min(100, round(100 * t["progress_to_target"]))
+    need, have = t["required_auto_merge_rate"], t["auto_merge_rate"]
+    gap = "" if have is None else (" · gap" if have < need else " · enough")
+    note = (f'Based on {t["merged_total"]} merged jobs. Below {MIN_SAMPLE} these rates are an anecdote, not a trend.'
+            if not t["sample_ok"] else f'Based on {t["merged_total"]} merged jobs.')
+    ceiling = ("–" if t["max_target_at_current_autonomy"] is None
+               else f'{t["max_target_at_current_autonomy"]:,}')
+    return ('<section class="panel"><h2>Path to ' + target + ' PRs a month</h2>'
+            f'<p>{target} a month is {t["needed_per_day"]} merged PRs every day, around the clock. '
+            f'With {t["human_hours_per_week"]} h of human review a week at {t["minutes_per_human_review"]} min each, '
+            f'humans can read about {t["human_review_capacity_per_month"]:,} PRs a month. '
+            f'Everything above that has to merge without a human reading it.</p>'
+            f'<div class="goal" role="img" aria-label="Projected {t["projected_per_month"]:,} of {target} PRs a month">'
+            f'<i style="width:{bar}%"></i></div>'
+            '<div class="kpis" style="margin:12px 0 0">'
+            f'<div class="kpi"><b>{t["projected_per_month"]:,}</b><span>PRs a month at the current pace ({t["merged_in_window"]} merged in {t["window_days"]} d)</span></div>'
+            f'<div class="kpi"><b>{_pct(have)}</b><span>merged without a human · need {_pct(need)}{gap}</span></div>'
+            f'<div class="kpi"><b>{ceiling}</b><span>PRs a month the current autonomy can carry</span></div>'
+            f'<div class="kpi"><b>{_pct(t["first_pass_rate"])}</b><span>merged in the first round</span></div>'
+            f'<div class="kpi"><b>{fmt_minutes(t["human_wait_per_merged_minutes"])}</b><span>human wait per merged PR</span></div>'
+            f'<div class="kpi"><b>{_pct(t["escape_rate"])}</b><span>of self-merges later flagged as a defect</span></div></div>'
+            f'<p class="foot">{note} Review budget and minutes per review are assumptions: set <code>targets</code> in '
+            '<code>factory/config.json</code>. Speed only counts while the escape rate stays low.</p></section>')
 
 
 def render_html(data):
@@ -367,30 +468,30 @@ def render_html(data):
             cols.append(f'<section class="col"><h2>{e(LABEL[stage])} · {len(cards)}</h2>'
                         + "".join(_card(j) for j in cards) + "</section>")
     b = s["bounces"]
-    bounce_text = ", ".join(f"{n}× zurück aus {e(LABEL[k])}" for k, n in sorted(b.items())) or "keine Rückläufer an den Bau"
+    bounce_text = ", ".join(f"{n}× back from {e(LABEL[k])}" for k, n in sorted(b.items())) or "no job sent back to build"
     share = round(100 * s["human_wait_share"])
     return (
-        '<!doctype html><html lang="de"><head><meta charset="utf-8">'
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
         '<meta name="color-scheme" content="dark">'
-        f"<title>Fabrik-Dashboard</title><style>{CSS}</style></head><body>"
-        '<header class="hero"><div class="wrap"><div class="eyebrow">KI-Software-Fabrik</div>'
-        "<h1>Fabrik-Dashboard</h1>"
-        f'<p class="sub">Stand {e(data["generated"][:16].replace("T", " "))} UTC · {s["jobs"]} Aufträge</p></div></header>'
+        f"<title>Factory dashboard</title><style>{CSS}</style></head><body>"
+        '<header class="hero"><div class="wrap"><div class="eyebrow">AI software factory</div>'
+        "<h1>Factory dashboard</h1>"
+        f'<p class="sub">As of {e(data["generated"][:16].replace("T", " "))} UTC · {s["jobs"]} jobs</p></div></header>'
         '<main class="wrap">'
         '<div class="kpis">'
-        f'<div class="kpi"><b>{s["merged_alone"]}</b><span>selbstständig gemergt</span></div>'
-        f'<div class="kpi"><b>{s["merged_with_human"]}</b><span>mit Mensch gemergt</span></div>'
-        f'<div class="kpi you"><b>{s["your_call"]}</b><span>warten auf dich</span></div>'
-        f'<div class="kpi"><b>{fmt_minutes(s["median_merged_minutes"])}</b><span>mittlere Durchlaufzeit (gemergt)</span></div>'
-        f'<div class="kpi"><b>{share} %</b><span>der Zeit Warten auf Menschen</span></div></div>'
-        '<section class="panel"><h2>Die Fabrik jetzt</h2><p>Aufträge je Stufe. Leuchtend violett: wartet auf einen Menschen.</p>' + _pipeline(data) + '</section>'
-        '<section class="panel"><h2>Wo es hakt</h2>'
-        f"<p>Zeit je Stufe, summiert über alle Aufträge. Rückläufer: {bounce_text}.</p>"
+        f'<div class="kpi"><b>{s["merged_alone"]}</b><span>merged without a human</span></div>'
+        f'<div class="kpi"><b>{s["merged_with_human"]}</b><span>merged with a human</span></div>'
+        f'<div class="kpi you"><b>{s["your_call"]}</b><span>waiting for you</span></div>'
+        f'<div class="kpi"><b>{fmt_minutes(s["median_merged_minutes"])}</b><span>median lead time (merged)</span></div>'
+        f'<div class="kpi"><b>{share} %</b><span>of the time spent waiting for humans</span></div></div>'
+        '<section class="panel"><h2>The factory now</h2><p>Jobs per stage. Bright violet: waiting for a human.</p>' + _pipeline(data) + '</section>'
+        '<section class="panel"><h2>Where it sticks</h2>'
+        f"<p>Time per stage, summed over all jobs. Sent back: {bounce_text}.</p>"
         f'<div class="bars">{_bars(s)}</div></section>'
-        + _learning_panel(s) +
+        + _throughput_panel(s) + _learning_panel(s) +
         f'<div class="board">{"".join(cols)}</div>'
-        '<p class="foot">Statischer Export ohne Skript. Spezifikationen, Diffs und Prüfberichte sind nicht enthalten.</p>'
+        '<p class="foot">Static export without script. Specs, diffs and review reports are not included.</p>'
         "</main></body></html>"
     )
 
@@ -408,7 +509,7 @@ def main(argv):
     root = Path.cwd()
     out = root / (argv[argv.index("--out") + 1] if "--out" in argv else "docs")
     data = write(root, out)
-    print(f"{data['summary']['jobs']} Aufträge exportiert nach {out}")
+    print(f"{data['summary']['jobs']} jobs exported to {out}")
 
 
 if __name__ == "__main__":

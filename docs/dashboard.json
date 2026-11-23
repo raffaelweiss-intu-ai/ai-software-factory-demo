@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-23T22:31:55+00:00",
+  "generated": "2026-11-23T22:49:21+00:00",
   "jobs": [
     {
       "id": "001-cancel-a-booking",
@@ -492,11 +492,11 @@
           "stage": "needs-human",
           "round": 1,
           "note": "approver ESCALATE: auth surface",
-          "minutes": 12919
+          "minutes": 12936
         }
       ],
-      "lead_minutes": 12923,
-      "human_wait_minutes": 12919,
+      "lead_minutes": 12940,
+      "human_wait_minutes": 12936,
       "machine_minutes": 4,
       "progress": {
         "position": "approve",
@@ -533,12 +533,12 @@
           "stage": "needs-info",
           "round": 0,
           "note": "intake NEEDS-INFO",
-          "minutes": 12918
+          "minutes": 12936
         }
       ],
-      "lead_minutes": 12919,
-      "human_wait_minutes": 12918,
-      "machine_minutes": 1,
+      "lead_minutes": 12936,
+      "human_wait_minutes": 12936,
+      "machine_minutes": 0,
       "progress": {
         "position": "intake",
         "waiting_for_human": true,
@@ -659,12 +659,12 @@
           "stage": "approve",
           "round": 1,
           "note": "reviews pass",
-          "minutes": 1
+          "minutes": 19
         }
       ],
-      "lead_minutes": 4,
+      "lead_minutes": 22,
       "human_wait_minutes": 0,
-      "machine_minutes": 4,
+      "machine_minutes": 22,
       "progress": {
         "position": "approve",
         "waiting_for_human": false,
@@ -759,13 +759,13 @@
           "at": "2026-11-23T22:31:50+00:00",
           "stage": "needs-human",
           "round": 1,
-          "note": "Approver sagt ESCALATE, nicht APPROVE; Konfidenz medium liegt unter high; Risiko medium liegt über low; Fläche braucht immer einen Menschen: security",
-          "minutes": 0
+          "note": "Approver says ESCALATE, not APPROVE; Confidence medium is below high; Risk medium is above low; Surface always needs a human: security",
+          "minutes": 17
         }
       ],
-      "lead_minutes": 4,
-      "human_wait_minutes": 0,
-      "machine_minutes": 4,
+      "lead_minutes": 22,
+      "human_wait_minutes": 17,
+      "machine_minutes": 5,
       "progress": {
         "position": "approve",
         "waiting_for_human": true,
@@ -774,7 +774,7 @@
       },
       "your_call": {
         "needed": true,
-        "reason": "Approver sagt ESCALATE, nicht APPROVE; Konfidenz medium liegt unter high; Risiko medium liegt über low; Fläche braucht immer einen Menschen: security"
+        "reason": "Approver says ESCALATE, not APPROVE; Confidence medium is below high; Risk medium is above low; Surface always needs a human: security"
       }
     },
     {
@@ -849,12 +849,12 @@
           "stage": "approve",
           "round": 1,
           "note": "reviews pass",
-          "minutes": 1
+          "minutes": 18
         }
       ],
-      "lead_minutes": 4,
+      "lead_minutes": 22,
       "human_wait_minutes": 0,
-      "machine_minutes": 4,
+      "machine_minutes": 22,
       "progress": {
         "position": "approve",
         "waiting_for_human": false,
@@ -876,13 +876,13 @@
     "median_merged_minutes": 5,
     "stage_minutes": {
       "build": 37,
-      "needs-human": 14222,
+      "needs-human": 14256,
       "intake": 1,
-      "needs-info": 12918,
-      "approve": 2,
+      "needs-info": 12936,
+      "approve": 37,
       "review": 1
     },
-    "human_wait_share": 0.9977207558267774,
+    "human_wait_share": 0.9964089410040308,
     "learning": {
       "evals": {
         "total": 9,

@@ -10,6 +10,9 @@ const publicView = ({ id, slot, name, email }) => ({ id, slot, name, email });
 
 // In-memory store for slots and bookings.
 
+// Longest accepted name, counted on the trimmed (stored) value in JS string length.
+const MAX_NAME_LENGTH = 100;
+
 // Thrown when a slot already has a booking. Callers check `code`, not the message.
 export class SlotTakenError extends Error {
   constructor() {
@@ -28,6 +31,7 @@ export function createStore(slots) {
     book({ slot, name, email }) {
       if (!slots.includes(slot)) throw new Error("unknown slot");
       if (typeof name !== "string" || name.trim() === "") throw new Error("name is required");
+      if (name.trim().length > MAX_NAME_LENGTH) throw new Error("name is too long");
       if (typeof email !== "string" || !email.includes("@")) throw new Error("email is invalid");
       if (bookings.some((b) => b.slot === slot)) throw new SlotTakenError();
       const cancelToken = randomBytes(32).toString("hex");

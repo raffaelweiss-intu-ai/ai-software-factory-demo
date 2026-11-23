@@ -96,6 +96,7 @@ ${slotGroup}
 const STORE_ERRORS = {
   "unknown slot": "Please choose one of the free slots.",
   "name is required": "Please enter your name.",
+  "name is too long": "Sorry, that name is too long: please use at most 100 characters.",
   "email is invalid": "Please enter a valid email address (it needs an @).",
 };
 

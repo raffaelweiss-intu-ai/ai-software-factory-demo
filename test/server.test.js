@@ -320,3 +320,40 @@ test("no endpoint other than POST /api/bookings exposes a token or its hash, inc
     }
   });
 });
+
+// Health endpoint: a constant liveness answer that never touches the store.
+const withHealthServer = async (store, fn) => {
+  const srv = createServer(store);
+  await new Promise((r) => srv.listen(0, "127.0.0.1", r));
+  const url = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    await fn(url);
+  } finally {
+    await new Promise((r) => srv.close(r));
+  }
+};
+
+test("GET /healthz answers 200 with application/json and {status: ok}, no headers needed", async () => {
+  const res = await fetch(base + "/healthz");
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-type"), /^application\/json/);
+  assert.deepEqual(await res.json(), { status: "ok" });
+});
+
+test("GET /healthz never touches the store", async () => {
+  const boom = () => {
+    throw new Error("store touched");
+  };
+  const store = { slots: boom, bookings: boom, book: boom, cancel: boom, cancelWithToken: boom };
+  await withHealthServer(store, async (url) => {
+    const res = await fetch(url + "/healthz");
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { status: "ok" });
+  });
+});
+
+test("POST /healthz answers 404 not found", async () => {
+  const res = await fetch(base + "/healthz", { method: "POST" });
+  assert.equal(res.status, 404);
+  assert.deepEqual(await res.json(), { error: "not found" });
+});

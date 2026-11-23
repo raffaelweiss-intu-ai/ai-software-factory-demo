@@ -12,6 +12,7 @@ Aufruf (im Projektordner):
   job.py show <job-id>
   job.py list
 """
+import fcntl
 import json
 import os
 import re
@@ -72,19 +73,26 @@ def _write(root, data):
     os.replace(tmp, d / "job.json")
 
 
+def _next_number(root):
+    nums = [int(m.group(1)) for p in jobs_dir(root).iterdir() if p.is_dir() and (m := re.match(r"(\d+)-", p.name))]
+    return max(nums, default=0) + 1
+
+
 def create(root, issue, title):
+    """Create a job. Parallel callers are serialized by a lock; numbers count up and are never reused."""
     jobs_dir(root).mkdir(parents=True, exist_ok=True)
-    n = len([p for p in jobs_dir(root).iterdir() if p.is_dir()]) + 1
-    data = {
-        "id": f"{n:03d}-{slug(title)}",
-        "issue": issue,
-        "title": title,
-        "stage": "intake",
-        "round": 0,
-        "extra_rounds": 0,
-        "events": [{"at": now(), "stage": "intake", "note": "angelegt"}],
-    }
-    _write(root, data)
+    with open(jobs_dir(root).parent / ".jobs.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        data = {
+            "id": f"{_next_number(root):03d}-{slug(title)}",
+            "issue": issue,
+            "title": title,
+            "stage": "intake",
+            "round": 0,
+            "extra_rounds": 0,
+            "events": [{"at": now(), "stage": "intake", "note": "angelegt"}],
+        }
+        _write(root, data)
     return data
 
 

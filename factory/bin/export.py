@@ -32,7 +32,9 @@ STEP_OF = {"intake": "intake", "needs-info": "intake", "spec": "spec", "build": 
 LABEL = {"intake": "Intake", "needs-info": "Question", "spec": "Spec", "build": "Build",
          "gate": "Gate", "review": "Review", "approve": "Approve", "merging": "Merge",
          "needs-human": "Waiting for human", "merge": "Merge", "merged": "Merged", "rejected": "Rejected"}
-TARGET_DEFAULTS = {"prs_per_month": 2500, "human_hours_per_week": 10, "minutes_per_human_review": 10}
+TARGET_DEFAULTS = {"prs_per_month": 2500, "human_hours_per_week": 10, "minutes_per_human_review": 10,
+                   "ramp_weeks": 26, "max_escape_rate": 0.02, "min_first_pass_rate": 0.7}
+RAMP_HISTORY = 8
 WINDOW_DAYS = 30
 MIN_SAMPLE = 30
 
@@ -180,7 +182,10 @@ def _throughput(root, jobs, learning, now):
     capacity = (t["human_hours_per_week"] * WINDOW_DAYS / 7) * 60 / t["minutes_per_human_review"]
     entries = learning["_entries"]
     autos = [e for e in entries if e.get("outcome") == "auto"]
+    required = max(0.0, 1 - capacity / t["prs_per_month"]) if t["prs_per_month"] else 0.0
+    escape = (sum(1 for e in autos if e.get("regret")) / len(autos)) if autos else None
     return {
+        "ramp": _ramp(t, jobs, now, auto, first_pass, escape, required),
         **{"target_per_month": t["prs_per_month"], "human_hours_per_week": t["human_hours_per_week"],
            "minutes_per_human_review": t["minutes_per_human_review"]},
         "window_days": window, "merged_in_window": len(recent), "projected_per_month": projected,
@@ -194,6 +199,40 @@ def _throughput(root, jobs, learning, now):
         "escape_rate": (sum(1 for e in autos if e.get("regret")) / len(autos)) if autos else None,
         "merged_total": len(merged), "sample_ok": len(merged) >= MIN_SAMPLE,
     }
+
+
+def _ramp(t, jobs, now, auto, first_pass, escape, required_auto):
+    """From this week's pace to the monthly target: a weekly goal on a steady growth curve, and the one thing that holds it back."""
+    end = _ts(now).timestamp()
+    weeks = [{"merged": 0} for _ in range(RAMP_HISTORY)]
+    for j in jobs:
+        if j["stage"] != "merged" or not j["events"]:
+            continue
+        age = end - _ts(j["events"][-1]["at"]).timestamp()
+        idx = RAMP_HISTORY - 1 - int(age // (7 * 86400)) if age >= 0 else RAMP_HISTORY - 1
+        if 0 <= idx < RAMP_HISTORY:
+            weeks[idx]["merged"] += 1
+    this_week = weeks[-1]["merged"]
+    per_week = round(t["prs_per_month"] * 7 / WINDOW_DAYS)
+    horizon = max(1, int(t["ramp_weeks"]))
+    growth = (per_week / max(this_week, 1)) ** (1 / horizon) - 1 if per_week > 0 else 0.0
+    if this_week == 0:
+        goal = 1
+    else:
+        goal = max(this_week + 1, math.ceil(this_week * (1 + growth))) if this_week < per_week else per_week
+    n_merged = sum(1 for j in jobs if j["stage"] == "merged")
+    if escape is not None and escape > t["max_escape_rate"]:
+        b = {"kind": "escapes", "text": f"{round(100 * escape)} % of self-merges were later flagged as defects (limit {round(100 * t['max_escape_rate'])} %). Strengthen verification before going faster."}
+    elif auto is not None and auto < required_auto:
+        b = {"kind": "autonomy", "text": f"Only {round(100 * auto)} % merge without a human, the target needs {round(100 * required_auto)} %. Find why jobs go to a human and fix it higher up the ladder."}
+    elif first_pass is not None and first_pass < t["min_first_pass_rate"]:
+        b = {"kind": "rework", "text": f"Only {round(100 * first_pass)} % merge in the first round (want {round(100 * t['min_first_pass_rate'])} %). Look at what the gate and reviewers send back."}
+    elif n_merged == 0:
+        b = {"kind": "volume", "text": "Nothing has merged yet. Run the first job end to end."}
+    else:
+        b = {"kind": "volume", "text": "Quality and autonomy are not the limit. Start more jobs, in parallel."}
+    return {"weeks": weeks, "this_week": this_week, "target_per_week": per_week, "horizon_weeks": horizon,
+            "weekly_growth_needed": growth, "next_week_goal": goal, "bottleneck": b}
 
 
 def build(root, now=None):
@@ -315,6 +354,9 @@ h1{font-size:clamp(1.8rem,4vw,2.6rem);margin:6px 0 6px;letter-spacing:-.02em}
 @media (prefers-reduced-motion:reduce){.link{animation:none}}
 @media (max-width:760px){.pipe{overflow-x:auto;padding-bottom:6px}.bar{grid-template-columns:96px 1fr 78px;gap:6px}}
 .foot{color:var(--mut);font-size:.78rem;margin-top:8px}
+.ramp{display:flex;gap:18px;align-items:flex-end;margin:14px 0 4px;flex-wrap:wrap}
+.spark{display:flex;gap:4px;align-items:flex-end;height:64px;min-width:160px}
+.spark i{display:block;width:16px;border-radius:4px 4px 0 0;background:linear-gradient(180deg,var(--vl),var(--v1))}
 .goal{height:14px;border-radius:99px;background:var(--line);overflow:hidden}
 .goal i{display:block;height:100%;min-width:4px;border-radius:99px;background:linear-gradient(90deg,var(--v1),var(--cy))}
 """
@@ -440,6 +482,15 @@ def _throughput_panel(s):
             if not t["sample_ok"] else f'Based on {t["merged_total"]} merged jobs.')
     ceiling = ("–" if t["max_target_at_current_autonomy"] is None
                else f'{t["max_target_at_current_autonomy"]:,}')
+    r = t["ramp"]
+    top = max([w["merged"] for w in r["weeks"]] + [r["next_week_goal"], 1])
+    cols = "".join(f'<i title="{w["merged"]} merged" style="height:{max(3, round(100 * w["merged"] / top))}%"></i>'
+                   for w in r["weeks"])
+    ramp = ('<div class="ramp"><div class="spark" role="img" aria-label="Merged PRs per week, last 8 weeks">' + cols + '</div>'
+            '<div><b>Next week: ' + str(r["next_week_goal"]) + ' merged</b> (this week ' + str(r["this_week"]) + ')<br>'
+            f'<span class="foot">Reaching {r["target_per_week"]:,} a week in {r["horizon_weeks"]} weeks takes about '
+            f'{round(100 * r["weekly_growth_needed"])} % more every week.</span>'
+            '<p class="foot" style="margin:8px 0 0"><b>Bottleneck:</b> ' + html.escape(r["bottleneck"]["text"]) + '</p></div></div>')
     return ('<section class="panel"><h2>Path to ' + target + ' PRs a month</h2>'
             f'<p>{target} a month is {t["needed_per_day"]} merged PRs every day, around the clock. '
             f'With {t["human_hours_per_week"]} h of human review a week at {t["minutes_per_human_review"]} min each, '
@@ -447,6 +498,7 @@ def _throughput_panel(s):
             f'Everything above that has to merge without a human reading it.</p>'
             f'<div class="goal" role="img" aria-label="Projected {t["projected_per_month"]:,} of {target} PRs a month">'
             f'<i style="width:{bar}%"></i></div>'
+            + ramp +
             '<div class="kpis" style="margin:12px 0 0">'
             f'<div class="kpi"><b>{t["projected_per_month"]:,}</b><span>PRs a month at the current pace ({t["merged_in_window"]} merged in {t["window_days"]} d)</span></div>'
             f'<div class="kpi"><b>{_pct(have)}</b><span>merged without a human · need {_pct(need)}{gap}</span></div>'

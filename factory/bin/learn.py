@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
-"""Lernzyklus der Fabrik: aus Entscheidungen der Menschen werden Vorschläge, nie stille Änderungen.
+"""Learning loop of the factory: human decisions become proposals, never silent changes.
 
-Die Fabrik lernt nur mit einem Menschen in der Schleife. Dieses Skript wertet aus und schlägt vor.
-Es ändert weder `factory/config.json` noch Regeln noch Prüfungen. Das tut ein Mensch.
+The factory only learns with a human in the loop. This script evaluates and proposes.
+It never edits `factory/config.json`, rules or checks. A human does that.
 
-Aufruf (im Projektordner):
-  learn.py record <job-id>        beendeten Auftrag ins Lernprotokoll aufnehmen
-  learn.py flag <job-id> <Grund>  Selbst-Freigabe war später ein Fehler (stärkstes Signal)
-  learn.py report                 Auswertung und Schwellen-Vorschläge
-  learn.py lessons                Rückmeldungen der Menschen als Regel-Vorschläge auflisten
+Usage (in the project folder):
+  learn.py record <job-id>              add a finished job to the learning log
+  learn.py flag <job-id> <reason>       a self-merge later turned out to be a mistake (strongest signal)
+  learn.py level <job/feedback-N> <lvl> classify a lesson on the fix ladder (see LEVELS)
+  learn.py report                       evaluation, threshold proposals, lessons per ladder level
+  learn.py lessons                      list human feedback as tickable rule proposals
+
+Fix ladder, strongest first: a mistake fixed higher up cannot come back.
+  architecture   make the mistake impossible (one owner, one way, wrong import fails)
+  static-check   types, lint, CI whose error names the fix
+  rule           review rules and bot reviews
+  skill          instructions an agent loads on demand
+  guide          style guide prose, the weakest and the easiest to ignore
 """
 import json
 import re
@@ -18,6 +26,9 @@ from pathlib import Path
 
 FINAL = {"merged", "rejected"}
 HUMAN = {"needs-human", "needs-info"}
+LEVELS = ["architecture", "static-check", "rule", "skill", "guide"]
+WEAK_LEVELS = {"skill", "guide"}
+REPEAT_AT = 3
 
 
 def _dir(root):
@@ -33,6 +44,33 @@ def _load(root):
     if not f.exists():
         return []
     return [json.loads(x) for x in f.read_text().splitlines() if x.strip()]
+
+
+def _levels_path(root):
+    return _dir(root) / "levels.json"
+
+
+def _levels(root):
+    f = _levels_path(root)
+    return json.loads(f.read_text()) if f.exists() else {}
+
+
+def set_level(root, key, level):
+    if level not in LEVELS:
+        raise ValueError(f"unknown level {level!r}; use one of {', '.join(LEVELS)}")
+    levels = _levels(root)
+    levels[key] = level
+    _dir(root).mkdir(parents=True, exist_ok=True)
+    _levels_path(root).write_text(json.dumps(levels, indent=2, sort_keys=True) + "\n")
+    return {"lesson": key, "level": level}
+
+
+def _lesson_keys(root, entries):
+    keys = []
+    for e in entries:
+        jd = Path(root) / "factory" / "jobs" / e["job"]
+        keys += [f'{e["job"]}/{fb.stem}' for fb in sorted(jd.glob("feedback-*.md"))]
+    return keys
 
 
 def _save(root, entries):
@@ -51,7 +89,7 @@ def record(root, job_id):
     jd = Path(root) / "factory" / "jobs" / job_id
     job = json.loads((jd / "job.json").read_text())
     if job["stage"] not in FINAL:
-        raise ValueError(f"{job_id} ist noch nicht beendet ({job['stage']})")
+        raise ValueError(f"{job_id} is not finished yet ({job['stage']})")
     feedback = len(list(jd.glob("feedback-*.md")))
     human = any(e["stage"] in HUMAN for e in job.get("events", []))
     if job["stage"] == "rejected":
@@ -61,10 +99,12 @@ def record(root, job_id):
     else:
         outcome = "human-changed" if feedback else "human-unchanged"
     surf = (_field(jd / "intake.md", "SURFACES") or "")
+    cats = (_field(jd / "decision.md", "CATEGORIES") or "")
     entry = {
         "job": job_id, "issue": job["issue"], "title": job["title"], "outcome": outcome,
         "risk": (_field(jd / "intake.md", "RISK") or "unknown").lower(),
         "surfaces": [s.strip() for s in surf.split(",") if s.strip() and s.strip() != "none"],
+        "categories": [c.strip().lower() for c in cats.split(",") if c.strip() and c.strip().lower() != "none"],
         "confidence": (_field(jd / "decision.md", "CONFIDENCE") or "none").lower(),
         "rounds": job.get("round", 0), "escalations": sum(1 for e in job.get("events", []) if e["stage"] == "needs-human"),
         "feedback_count": feedback, "regret": False, "regret_reason": "",
@@ -83,7 +123,7 @@ def flag(root, job_id, reason):
     entries = _load(root)
     hit = [e for e in entries if e["job"] == job_id]
     if not hit:
-        raise ValueError(f"{job_id} steht nicht im Lernprotokoll; zuerst `record`")
+        raise ValueError(f"{job_id} is not in the learning log; run `record` first")
     hit[0]["regret"], hit[0]["regret_reason"] = True, reason
     _save(root, entries)
     return hit[0]
@@ -101,30 +141,52 @@ def report(root, min_sample=5):
     proposals = []
     for cell, c in sorted(cells.items()):
         if c["regret"]:
-            proposals.append(f"Verschärfen: Zelle {cell} hatte {c['regret']} Selbst-Freigabe(n) mit Befund. "
-                             "Schwelle in `autonomy` prüfen und Fall als Eval-Fall aufnehmen.")
+            proposals.append(f"Tighten: cell {cell} had {c['regret']} self-merge(s) with a defect. "
+                             "Check the threshold in `autonomy` and add the case as an eval case.")
         elif c["human-unchanged"] >= min_sample and c["human-changed"] == 0:
-            proposals.append(f"Lockern prüfen: Zelle {cell}: {c['human-unchanged']} Eskalationen, die der Mensch "
-                             "unverändert gemergt hat, keine mit Änderung. Selbst-Freigabe für diese Zelle erwägen.")
-    return {"entries": len(entries), "by_outcome": by_outcome, "cells": cells,
+            proposals.append(f"Loosen, if you agree: cell {cell}: {c['human-unchanged']} escalations that the human "
+                             "merged unchanged, none with changes. Self-merge for this cell is worth considering.")
+    repeats = {}
+    for e in entries:
+        for cat in e.get("categories", []):
+            repeats[cat] = repeats.get(cat, 0) + 1
+    for cat, n in sorted(repeats.items()):
+        if n >= REPEAT_AT:
+            proposals.append(f"Make structural: category `{cat}` escalated {n} times. A human keeps catching the same "
+                             "class. Fix it in the code (architecture, types, a lint whose error names the fix) "
+                             "before writing another rule or skill.")
+    levels = _levels(root)
+    by_level = {}
+    for key in _lesson_keys(root, entries):
+        lvl = levels.get(key, "unclassified")
+        by_level[lvl] = by_level.get(lvl, 0) + 1
+    classified = sum(n for lvl, n in by_level.items() if lvl != "unclassified")
+    weak = sum(n for lvl, n in by_level.items() if lvl in WEAK_LEVELS)
+    if classified >= 4 and weak / classified >= 0.5:
+        proposals.append(f"Move up the ladder: {weak} of {classified} classified lessons sit in skills or guides, "
+                         "the weakest levels. For each, ask whether a check, a type or the structure of the code "
+                         "can make the mistake impossible instead.")
+    return {"entries": len(entries), "by_outcome": by_outcome, "cells": cells, "lessons_by_level": by_level,
             "min_sample": min_sample, "proposals": proposals}
 
 
 def lessons(root):
-    """Schreibt die Rückmeldungen der Menschen als abhakbare Regel-Vorschläge. Gesetzte Haken bleiben."""
+    """Writes the humans' feedback as tickable rule proposals, with the ladder level. Ticks are kept."""
     f = _dir(root) / "proposals.md"
-    ticked = set(re.findall(r"^- \[x\] (\S+):", f.read_text(), re.M)) if f.exists() else set()
+    ticked = set(re.findall(r"^- \[x\] (\S+)(?: \(level: [^)]*\))?:", f.read_text(), re.M)) if f.exists() else set()
+    levels = _levels(root)
     items = []
-    for e in _load(root):
-        jd = Path(root) / "factory" / "jobs" / e["job"]
-        for fb in sorted(jd.glob("feedback-*.md")):
-            key = f'{e["job"]}/{fb.stem}'
-            text = " ".join(fb.read_text().split())
-            items.append(f'- [{"x" if key in ticked else " "}] {key}: {text}')
+    entries = _load(root)
+    for key in _lesson_keys(root, entries):
+        job_id, stem = key.split("/")
+        text = " ".join((Path(root) / "factory" / "jobs" / job_id / f"{stem}.md").read_text().split())
+        items.append(f'- [{"x" if key in ticked else " "}] {key} (level: {levels.get(key, "unclassified")}): {text}')
     _dir(root).mkdir(parents=True, exist_ok=True)
-    f.write_text("# Regel-Vorschläge aus Rückmeldungen\n\nJede Zeile ist eine Entscheidung, die ein Mensch getroffen hat. "
-                 "Frage dich je Zeile: Gehört das in AGENTS.md, in die Prüfungen oder als Eval-Fall in `factory/evals/`? "
-                 "Hake ab, wenn übernommen oder bewusst verworfen.\n\n" + "\n".join(items) + ("\n" if items else ""))
+    f.write_text("# Rule proposals from feedback\n\nEach line is a decision a human made. "
+                 "For each line ask: does it belong in the code, in a check, in AGENTS.md, or as an eval case in "
+                 "`factory/evals/`? Classify it with `learn.py level <key> <level>` (strongest first: "
+                 + ", ".join(LEVELS) + "). Tick it when adopted or deliberately dropped.\n\n"
+                 + "\n".join(items) + ("\n" if items else ""))
     return len(items)
 
 
@@ -136,6 +198,8 @@ def main(argv):
             out = record(root, args[0])
         elif cmd == "flag":
             out = flag(root, args[0], " ".join(args[1:]))
+        elif cmd == "level":
+            out = set_level(root, args[0], args[1])
         elif cmd == "report":
             out = report(root)
         elif cmd == "lessons":
